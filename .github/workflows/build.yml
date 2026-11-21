@@ -18,10 +18,10 @@ jobs:
       - name: Restore NuGet packages
         run: msbuild P2PKiwi.WinUI3.sln /t:Restore /p:Configuration=Release /p:Platform=x64
       - name: Restore and build (Release, x64)
-        run: msbuild P2PKiwi.WinUI3.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxBundlePlatforms=x64 /p:UapAppxPackageBuildMode=StoreUpload
-      - name: Upload MSIX bundle
+        run: msbuild src/P2PKiwi.WinUI3/P2PKiwi.WinUI3.csproj /p:Configuration=Release /p:Platform=x64 /p:GenerateAppxPackageOnBuild=true /p:AppxBundle=Never /p:UapAppxPackageBuildMode=StoreUpload /p:AppxPackageSigningEnabled=false
+      - name: Upload MSIX package
         uses: actions/upload-artifact@v4
         with:
           name: TokiCast-windows-x64
-          path: src/P2PKiwi.WinUI3/AppPackages/**/*.msixbundle
+          path: src/P2PKiwi.WinUI3/AppPackages/**/*.msix
           if-no-files-found: error
