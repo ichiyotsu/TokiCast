@@ -1,9 +1,20 @@
 name: Release
 
+# 打 tag v0.1.0 后自动构建并把安装包挂到 GitHub Release 上。
+# Release 标题只写版本号，说明只写编号列表（见仓库 README 的发布说明）。
+# 也可以手动触发（Actions → Release → Run workflow），用于 tag 已存在、
+# 但 workflow 或代码修好之后需要重新出包的情况（重跑旧 run 会用旧 workflow，
+# 所以不能用 Re-run）。
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要出包的 tag，例如 v0.1.0"
+        required: true
+        default: "v0.1.0"
 
 permissions:
   contents: write
@@ -11,6 +22,8 @@ permissions:
 jobs:
   build-and-release:
     runs-on: windows-latest
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -19,16 +32,16 @@ jobs:
       - uses: microsoft/setup-msbuild@v2
       - name: Restore NuGet packages
         run: msbuild P2PKiwi.WinUI3.sln /t:Restore /p:Configuration=Release /p:Platform=x64
+      - name: Build (Release, x64)
+        run: msbuild P2PKiwi.WinUI3.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxBundlePlatforms=x64 /p:UapAppxPackageBuildMode=StoreUpload
       - name: Get version without v prefix
         id: version
         shell: pwsh
-        run: echo "version=$($env:GITHUB_REF_NAME.TrimStart('v'))" >> $env:GITHUB_OUTPUT
-      - name: Build (Release, x64)
-        run: msbuild P2PKiwi.WinUI3.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxBundlePlatforms=x64 /p:UapAppxPackageBuildMode=StoreUpload
+        run: echo "version=$($env:RELEASE_TAG.TrimStart('v'))" >> $env:GITHUB_OUTPUT
       - name: Rename bundle to TokiCast-<version>.msixbundle
         shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}".TrimStart("v")
+          $version = "$env:RELEASE_TAG".TrimStart("v")
           $bundle = Get-ChildItem -Recurse -Filter *.msixbundle src/P2PKiwi.WinUI3/AppPackages | Select-Object -First 1
           if (-not $bundle) { throw "No .msixbundle found under AppPackages" }
           Copy-Item $bundle.FullName "TokiCast-$version.msixbundle"
@@ -36,7 +49,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
           name: ${{ steps.version.outputs.version }}
           files: TokiCast-*.msixbundle
           make_latest: true
