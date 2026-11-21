@@ -44,7 +44,7 @@ public sealed partial class SessionPage : Page
                 {
                     Points = new PointCollection { new(0, 0), new(0, 16), new(4, 12), new(7, 18), new(9, 16), new(6, 11), new(11, 11) },
                     Fill = new SolidColorBrush(Color.FromArgb(255, 0x67, 0x50, 0xA4)),
-                    Stroke = new SolidColorBrush(Colors.White), StrokeThickness = 1,
+                    Stroke = new SolidColorBrush(Microsoft.UI.Colors.White), StrokeThickness = 1,
                 };
                 var label = new TextBlock { Text = name, FontSize = 11, Padding = new Thickness(4, 1, 4, 1) };
                 CursorLayer.Children.Add(cursor);
