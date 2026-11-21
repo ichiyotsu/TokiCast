@@ -5,6 +5,9 @@ name: Release
 # 也可以手动触发（Actions → Release → Run workflow），用于 tag 已存在、
 # 但 workflow 或代码修好之后需要重新出包的情况（重跑旧 run 会用旧 workflow，
 # 所以不能用 Re-run）。
+# 单工程 MSIX 打包说明（Microsoft Learn）：必须加
+# /p:GenerateAppxPackageOnBuild=true 才会产出 .msix；单工程 MSIX 不直接产
+# .msixbundle，所以用 MSIX Bundler Action 把单个 .msix 打成 bundle。
 on:
   push:
     tags:
@@ -33,19 +36,36 @@ jobs:
       - name: Restore NuGet packages
         run: msbuild P2PKiwi.WinUI3.sln /t:Restore /p:Configuration=Release /p:Platform=x64
       - name: Build (Release, x64)
-        run: msbuild P2PKiwi.WinUI3.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxBundlePlatforms=x64 /p:UapAppxPackageBuildMode=StoreUpload
+        run: msbuild src/P2PKiwi.WinUI3/P2PKiwi.WinUI3.csproj /p:Configuration=Release /p:Platform=x64 /p:GenerateAppxPackageOnBuild=true /p:AppxBundle=Never /p:UapAppxPackageBuildMode=StoreUpload /p:AppxPackageSigningEnabled=false
       - name: Get version without v prefix
         id: version
         shell: pwsh
-        run: echo "version=$($env:RELEASE_TAG.TrimStart('v'))" >> $env:GITHUB_OUTPUT
-      - name: Rename bundle to TokiCast-<version>.msixbundle
+        run: |
+          $v = $env:RELEASE_TAG.TrimStart('v')
+          echo "version=$v" >> $env:GITHUB_OUTPUT
+          echo "version4=$v.0" >> $env:GITHUB_OUTPUT
+      - name: Collect the .msix for bundling
         shell: pwsh
         run: |
-          $version = "$env:RELEASE_TAG".TrimStart("v")
-          $bundle = Get-ChildItem -Recurse -Filter *.msixbundle src/P2PKiwi.WinUI3/AppPackages | Select-Object -First 1
-          if (-not $bundle) { throw "No .msixbundle found under AppPackages" }
-          Copy-Item $bundle.FullName "TokiCast-$version.msixbundle"
-          Get-FileHash "TokiCast-$version.msixbundle" -Algorithm SHA256 | Format-List
+          $msix = Get-ChildItem -Recurse -Filter *.msix src/P2PKiwi.WinUI3/AppPackages | Select-Object -First 1
+          if (-not $msix) { throw "No .msix found under AppPackages" }
+          New-Item -ItemType Directory -Force -Path msix-only | Out-Null
+          Copy-Item $msix.FullName msix-only\
+          Get-ChildItem msix-only
+      - name: Bundle into .msixbundle
+        id: bundler
+        uses: LanceMcCarthy/Action-MsixBundler@v3
+        with:
+          msix-folder: '${{ github.workspace }}\msix-only'
+          msixbundle-filepath: '${{ github.workspace }}\TokiCast-${{ steps.version.outputs.version }}.msixbundle'
+          msixbundle-version: ${{ steps.version.outputs.version4 }}
+          architecture: x64
+      - name: Verify bundle
+        shell: pwsh
+        run: |
+          $bundle = "TokiCast-${{ steps.version.outputs.version }}.msixbundle"
+          if (-not (Test-Path $bundle)) { throw "Bundle not found: $bundle" }
+          Get-FileHash $bundle -Algorithm SHA256 | Format-List
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
