@@ -119,6 +119,14 @@ App 图标用 Keyline Icons 的 `cast-two-tone`（MIT 协议，24×24，`current
 多光标、远程控制开关、E2EE 徽标与邀请链接流程。原型里的画面是模拟的，
 真采集要走上面这套工程。
 
+## 0.1.0（首个版本，骨架版）
+
+- Windows 上的 WinUI 3 界面：主页（发起 / 加入）、会话页（投屏画面 + 多光标层 + 聊天 + 控制条）、设置页。
+- Win10 1809+ 适配：Mica 自动回退 Acrylic / 纯色，UI 不变。
+- 图标：Keyline `cast-two-tone`，白字 on #6750A4。
+- 实话：这一版是骨架——WebRTC、画面采集、远程输入、MLS/SFrame 还是接口 / 占位，真投屏要等接线完成后才通。发 0.1.0 是为了先把工程、图标和 CI 发布链路立起来。
+- 发布：打 tag `v0.1.0` 触发 `.github/workflows/release.yml`，在 windows-latest 上编 Release x64，产物重命名为 `TokiCast-0.1.0.msixbundle` 挂到 Release 上，标题只写 `0.1.0`。
+
 ## 许可与来源
 
 p2p.kiwi 原版 MIT 协议（`dont-be-evil-company/p2p.kiwi`）。本复刻只参考其
