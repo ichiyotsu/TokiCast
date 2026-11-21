@@ -2,9 +2,8 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
-  xmlns:uap6="http://schemas.microsoft.com/appx/manifest/uap/windows10/6"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap6 rescap">
+  IgnorableNamespaces="uap rescap">
   <Identity Name="P2PKiwi.WinUI3" Publisher="CN=Ichiyotsu" Version="0.1.0.0" />
   <Properties>
     <DisplayName>TokiCast</DisplayName>
@@ -28,7 +27,9 @@
     <Capability Name="internetClient" />
     <Capability Name="privateNetworkClientServer" />
     <DeviceCapability Name="microphone" />
-    <uap6:Capability Name="graphicsCapture" />
+    <!-- 屏幕采集：0.1.0 暂不声明 graphicsCapture。TokiCast 是 full-trust 桌面应用（非 AppContainer），
+         Windows.Graphics.Capture 的系统选取器会在使用时征求用户同意；uap6:Capability 的写法
+         在本工程的打包校验里通不过（C00CE014），等采集真正接线时再用 VS 清单设计器补上。 -->
     <rescap:Capability Name="runFullTrust" />
   </Capabilities>
 </Package>
