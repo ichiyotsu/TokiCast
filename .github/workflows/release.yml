@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - uses: microsoft/setup-msbuild@v2
+      - name: Get version without v prefix
+        id: version
+        shell: pwsh
+        run: echo "version=$($env:GITHUB_REF_NAME.TrimStart('v'))" >> $env:GITHUB_OUTPUT
+      - name: Build (Release, x64)
+        run: msbuild P2PKiwi.WinUI3.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxBundlePlatforms=x64 /p:UapAppxPackageBuildMode=StoreUpload
+      - name: Rename bundle to TokiCast-<version>.msixbundle
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref_name }}".TrimStart("v")
+          $bundle = Get-ChildItem -Recurse -Filter *.msixbundle src/P2PKiwi.WinUI3/AppPackages | Select-Object -First 1
+          if (-not $bundle) { throw "No .msixbundle found under AppPackages" }
+          Copy-Item $bundle.FullName "TokiCast-$version.msixbundle"
+          Get-FileHash "TokiCast-$version.msixbundle" -Algorithm SHA256 | Format-List
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.version.outputs.version }}
+          files: TokiCast-*.msixbundle
+          make_latest: true
