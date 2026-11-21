@@ -23,5 +23,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: TokiCast-windows-x64
-          path: src/P2PKiwi.WinUI3/AppPackages/**/*.msix
+          path: src/P2PKiwi.WinUI3/**/*.msix
           if-no-files-found: error
