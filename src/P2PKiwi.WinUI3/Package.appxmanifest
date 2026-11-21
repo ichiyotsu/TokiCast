@@ -27,7 +27,7 @@
   <Capabilities>
     <Capability Name="internetClient" />
     <Capability Name="privateNetworkClientServer" />
-    <Capability Name="microphone" />
+    <DeviceCapability Name="microphone" />
     <uap6:Capability Name="graphicsCapture" />
     <rescap:Capability Name="runFullTrust" />
   </Capabilities>
