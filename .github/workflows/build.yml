@@ -15,6 +15,8 @@ jobs:
         with:
           dotnet-version: "8.0.x"
       - uses: microsoft/setup-msbuild@v2
+      - name: Restore NuGet packages
+        run: msbuild P2PKiwi.WinUI3.sln /t:Restore /p:Configuration=Release /p:Platform=x64
       - name: Restore and build (Release, x64)
         run: msbuild P2PKiwi.WinUI3.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxBundlePlatforms=x64 /p:UapAppxPackageBuildMode=StoreUpload
       - name: Upload MSIX bundle
