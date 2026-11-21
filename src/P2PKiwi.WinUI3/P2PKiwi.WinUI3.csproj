@@ -2,6 +2,9 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <RootNamespace>P2PKiwi.WinUI3</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
@@ -14,11 +17,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationIcon>Assets\TokiCast.ico</ApplicationIcon>
   </PropertyGroup>
-
   <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
-
   <!-- Windows App SDK 1.6：WinUI 3 + Mica / NavigationView 等 -->
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250108002" />
@@ -27,7 +28,6 @@
          默认不引用，避免把未选定的库编进包里。 -->
     <!-- <PackageReference Include="SIPSorcery" Version="8.3.1" /> -->
   </ItemGroup>
-
   <ItemGroup>
     <Content Include="Assets\**" />
   </ItemGroup>
