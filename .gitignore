@@ -1,0 +1,6 @@
+bin/
+obj/
+.vs/
+tools-icon/node_modules/
+tools-icon/package-lock.json
+*.user
