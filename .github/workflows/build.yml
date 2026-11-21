@@ -1,0 +1,25 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - uses: microsoft/setup-msbuild@v2
+      - name: Restore and build (Release, x64)
+        run: msbuild P2PKiwi.WinUI3.sln /p:Configuration=Release /p:Platform=x64 /p:AppxBundle=Always /p:AppxBundlePlatforms=x64 /p:UapAppxPackageBuildMode=StoreUpload
+      - name: Upload MSIX bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: TokiCast-windows-x64
+          path: src/P2PKiwi.WinUI3/AppPackages/**/*.msixbundle
+          if-no-files-found: error
