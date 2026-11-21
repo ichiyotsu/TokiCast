@@ -47,8 +47,8 @@ jobs:
       - name: Collect the .msix for bundling
         shell: pwsh
         run: |
-          $msix = Get-ChildItem -Recurse -Filter *.msix src/P2PKiwi.WinUI3/AppPackages | Select-Object -First 1
-          if (-not $msix) { throw "No .msix found under AppPackages" }
+          $msix = Get-ChildItem -Recurse -Filter *.msix src/P2PKiwi.WinUI3 | Select-Object -First 1
+          if (-not $msix) { throw "No .msix found under src/P2PKiwi.WinUI3" }
           New-Item -ItemType Directory -Force -Path msix-only | Out-Null
           Copy-Item $msix.FullName msix-only\
           Get-ChildItem msix-only
