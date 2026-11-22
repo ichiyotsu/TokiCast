@@ -1,6 +1,6 @@
 ; TokiCast Windows 安装包（Inno Setup 6）。
 ; 由 CI 调用：choco install innosetup 后用 ISCC 编译，例如
-;   ISCC.exe /DPublishDir=<publish 目录> /DAppVersion=0.1.1 /DOutputBaseName=TokiCast-0.1.1 /O"<输出目录>" windows/installer/tokicast.iss
+;   ISCC.exe /DPublishDir=<publish 目录> /DAppVersion=0.1.2 /DOutputBaseName=TokiCast-0.1.2 /O"<输出目录>" windows/installer/tokicast.iss
 ; PublishDir 是 dotnet publish 的输出目录（含 P2PKiwi.WinUI3.exe 及其全部依赖，
 ; 自包含发布，不需要用户另装 .NET 运行时）。
 ; 本地直接编译时用下面 #ifndef 的默认值（需要先在 windows 下跑一次
@@ -9,10 +9,10 @@
 #define PublishDir "publish"
 #endif
 #ifndef AppVersion
-#define AppVersion "0.1.1"
+#define AppVersion "0.1.2"
 #endif
 #ifndef OutputBaseName
-#define OutputBaseName "TokiCast-0.1.1"
+#define OutputBaseName "TokiCast-0.1.2"
 #endif
 [Setup]
 AppId=com.ichiyotsu.tokicast
