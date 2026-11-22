@@ -9,6 +9,6 @@
     <!-- 圆角：WinUI 3 默认 8，卡片 12，胶囊 999 -->
     <CornerRadius x:Key="TokiCornerCard">12,12,12,12</CornerRadius>
     <CornerRadius x:Key="TokiCornerControl">8,8,8,8</CornerRadius>
-    <!-- 字体：Inter 优先，中文回退思源黑体 / 微软雅黑 -->
-    <FontFamily x:Key="TokiFontFamily">Inter, Source Han Sans SC, Microsoft YaHei UI</FontFamily>
+    <!-- 字体：Inter（打包进应用）优先，中文回退微软雅黑；全站粗体 -->
+    <FontFamily x:Key="TokiFontFamily">ms-appx:///Assets/Fonts/Inter-Bold.ttf#Inter, Microsoft YaHei UI</FontFamily>
 </ResourceDictionary>
