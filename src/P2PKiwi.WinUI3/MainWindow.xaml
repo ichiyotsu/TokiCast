@@ -5,10 +5,13 @@
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     Title="TokiCast">
     <Grid>
+        <!-- 左边栏宽度按 Tokilive 的 WinUI 设计：展开 200 / 收起 48 -->
         <controls:NavigationView x:Name="NavView"
             IsBackButtonVisible="Collapsed"
             IsSettingsVisible="True"
-            PaneDisplayMode="Left"
+            PaneDisplayMode="Auto"
+            OpenPaneLength="200"
+            CompactPaneLength="48"
             SelectionChanged="NavView_SelectionChanged">
             <controls:NavigationView.MenuItems>
                 <controls:NavigationViewItem Content="主页" Tag="home" Icon="Home" />
