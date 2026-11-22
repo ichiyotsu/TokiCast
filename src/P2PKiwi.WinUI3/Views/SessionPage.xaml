@@ -42,7 +42,7 @@
                     HorizontalAlignment="Right" VerticalAlignment="Top"
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
                 <Grid>
-                    <controls:CaptureElement x:Name="CameraPreview" Stretch="UniformToFill" />
+                    <Image x:Name="CameraPreviewImage" Stretch="UniformToFill" />
                     <TextBlock x:Name="CameraPlaceholder" Text="摄像头未开启"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
