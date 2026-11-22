@@ -21,6 +21,11 @@ public sealed partial class SessionPage : Page
         ParticipantList.ItemsSource = _vm.Participants;
         ChatList.ItemsSource = _vm.Messages;
         _vm.RemoteCursorMoved += OnRemoteCursorMoved;
+        // “允许”按钮在代码里创建一次再挂上去，不用 x:Bind 在加载时构造，
+        // 避免未处理异常导致整页加载闪退。
+        var allowButton = new Button { Content = "允许" };
+        allowButton.Click += (_, _) => ControlRequestBar.IsOpen = false;
+        ControlRequestBar.ActionButton = allowButton;
     }
 
     protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
@@ -29,44 +34,56 @@ public sealed partial class SessionPage : Page
         if (e.Parameter is string link) _ = _vm.JoinAsync(link);
     }
 
-    private Button AllowControlButton => new() { Content = "允许" };
-
     private void OnRemoteCursorMoved(string peerId, string name, double x, double y)
     {
-        // 远端光标：按相对坐标（0..1）换算到画面尺寸，画一个带名字的箭头。
-        // 原版 native/overlay-sidecar 做的是系统级光标叠加；WinUI 版先做应用内叠加。
-        DispatcherQueue.TryEnqueue(() =>
+        if (!_cursors.TryGetValue(peerId, out var entry))
         {
-            var w = RemoteVideo.ActualWidth; var h = RemoteVideo.ActualHeight;
-            if (!_cursors.TryGetValue(peerId, out var entry))
+            var cursor = new Polygon
             {
-                var cursor = new Polygon
-                {
-                    Points = new PointCollection { new(0, 0), new(0, 16), new(4, 12), new(7, 18), new(9, 16), new(6, 11), new(11, 11) },
-                    Fill = new SolidColorBrush(Color.FromArgb(255, 0x67, 0x50, 0xA4)),
-                    Stroke = new SolidColorBrush(Microsoft.UI.Colors.White), StrokeThickness = 1,
-                };
-                var label = new TextBlock { Text = name, FontSize = 11, Padding = new Thickness(4, 1, 4, 1) };
-                CursorLayer.Children.Add(cursor);
-                CursorLayer.Children.Add(label);
-                _cursors[peerId] = (cursor, label);
-                entry = (cursor, label);
-            }
-            Canvas.SetLeft(entry.Cursor, x * w);
-            Canvas.SetTop(entry.Cursor, y * h);
-            Canvas.SetLeft(entry.Label, x * w + 12);
-            Canvas.SetTop(entry.Label, y * h + 12);
-        });
+                Fill = new SolidColorBrush(Color.FromArgb(255, 90, 180, 255)),
+                Stroke = new SolidColorBrush(Colors.White),
+                StrokeThickness = 1,
+                Points = new PointCollection { new(0, 0), new(0, 16), new(4, 12), new(7, 18), new(9, 16), new(6, 11), new(11, 11) },
+            };
+            var label = new TextBlock
+            {
+                Text = name,
+                Background = new SolidColorBrush(Color.FromArgb(255, 90, 180, 255)),
+                Foreground = new SolidColorBrush(Colors.White),
+                Padding = new Thickness(4, 1, 4, 1),
+            };
+            CursorLayer.Children.Add(cursor);
+            CursorLayer.Children.Add(label);
+            entry = (cursor, label);
+            _cursors[peerId] = entry;
+        }
+        Canvas.SetLeft(entry.Cursor, x * RemoteVideo.ActualWidth);
+        Canvas.SetTop(entry.Cursor, y * RemoteVideo.ActualHeight);
+        Canvas.SetLeft(entry.Label, x * RemoteVideo.ActualWidth + 10);
+        Canvas.SetTop(entry.Label, y * RemoteVideo.ActualHeight + 16);
     }
 
-    private void MicButton_Click(object sender, RoutedEventArgs e) => _vm.ToggleMic();
-    private void ControlButton_Click(object sender, RoutedEventArgs e) => _vm.ToggleRemoteControl();
-    private void ChatButton_Click(object sender, RoutedEventArgs e) => ChatInput.Focus(FocusState.Programmatic);
-    private void Fullscreen_Click(object sender, RoutedEventArgs e) { /* AppWindow.Presenter.RequestPresentation */ }
-    private void Leave_Click(object sender, RoutedEventArgs e) { _ = _vm.LeaveAsync(); Frame.Navigate(typeof(HomePage)); }
-    private void SendChat_Click(object sender, RoutedEventArgs e) { _vm.SendChat(ChatInput.Text); ChatInput.Text = ""; }
-    private void ChatInput_KeyDown(object sender, KeyRoutedEventArgs e)
+    private void RemoteVideo_PointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Enter) { SendChat_Click(sender, e); e.Handled = true; }
+        var p = e.GetCurrentPoint(RemoteVideo).Position;
+        _vm.SendLocalCursor(p.X / RemoteVideo.ActualWidth, p.Y / RemoteVideo.ActualHeight);
+    }
+
+    private void StartSharing_Click(object sender, RoutedEventArgs e) { _ = _vm.StartSharingAsync(); }
+    private void StopSharing_Click(object sender, RoutedEventArgs e) { _vm.StopSharing(); }
+    private void RequestControl_Click(object sender, RoutedEventArgs e) { _ = _vm.RequestControlAsync(); }
+    private void AllowControlToggle_Toggled(object sender, RoutedEventArgs e) { _vm.AllowControl = AllowControlToggle.IsOn; }
+    private void CopyInviteLink_Click(object sender, RoutedEventArgs e) { _ = _vm.CopyInviteLinkAsync(); }
+    private void LeaveSession_Click(object sender, RoutedEventArgs e) { Frame.Navigate(typeof(HomePage)); }
+    private void DumpLog_Click(object sender, RoutedEventArgs e) { /* TODO: dump log */ }
+    private void Fullscreen_Click(object sender, RoutedEventArgs e) { /* AppWindow.Presenter.RequestPresentation */ }
+    private void MicButton_Click(object sender, RoutedEventArgs e) { MicButton.IsChecked = !MicButton.IsChecked; }
+    private void SendMessage_Click(object sender, RoutedEventArgs e) { /* TODO: send chat message */ }
+    private void RemoteVideo_KeyDown(object sender, KeyRoutedEventArgs e) { _vm.SendKey(e.Key, e.KeyStatus.IsKeyReleased); }
+    private void Home_Click(object sender, RoutedEventArgs e) { Frame.Navigate(typeof(HomePage)); }
+    private async void Settings_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new ContentDialog { Title = "设置", Content = "设置界面尚未实现。", CloseButtonText = "知道了", XamlRoot = XamlRoot };
+        await dialog.ShowAsync();
     }
 }
