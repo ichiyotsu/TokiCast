@@ -25,7 +25,7 @@
                         DefaultLabelPosition="Right" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}">
                 <AppBarButton x:Name="MicButton" Icon="Microphone" Label="静音" Click="MicButton_Click" />
                 <AppBarButton x:Name="ControlButton" Icon="TouchPointer" Label="远程控制" Click="ControlButton_Click" />
-                <AppBarButton Icon="Chat" Label="聊天" Click="ChatButton_Click" />
+                <AppBarButton Icon="Message" Label="聊天" Click="ChatButton_Click" />
                 <AppBarButton Icon="FullScreen" Label="全屏" Click="Fullscreen_Click" />
                 <AppBarSeparator />
                 <AppBarButton Icon="HangUp" Label="离开" Foreground="Red" Click="Leave_Click" />
