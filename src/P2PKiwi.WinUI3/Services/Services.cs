@@ -5,6 +5,7 @@ namespace P2PKiwi.WinUI3.Services;
 /// <summary>房间管理：创建 / 加入 / 离开。房间只在内存里，关闭即销毁，不存账号。</summary>
 public interface ISessionManager
 {
+    SessionInfo? Current { get; }
     Task<SessionInfo> CreateSessionAsync(SessionOptions options);
     Task<SessionInfo> JoinSessionAsync(string inviteLinkOrCode);
     Task LeaveCurrentAsync();
@@ -12,14 +13,19 @@ public interface ISessionManager
 
 public sealed class SessionManager : ISessionManager
 {
+    /// <summary>全应用共用一个房间管理：主页创建的房间，会话页看到的是同一个，否则成员表与聊天各自为空。</summary>
+    public static SessionManager Shared { get; } = new();
+
     private SessionInfo? _current;
+    public SessionInfo? Current => _current;
 
     public Task<SessionInfo> CreateSessionAsync(SessionOptions options)
     {
         // 房间 ID：短码即可；原版用邀请 URL 带 SDP 做带外交换。
         var roomId = Convert.ToHexString(Guid.NewGuid().ToByteArray())[..8].ToLowerInvariant();
+        var name = AppSettings.Current.UserName;
         _current = new SessionInfo(roomId, $"https://p2p.kiwi/session/{roomId}",
-            new[] { new Participant("me", "我（主持人）", IsHost: true, CanControl: true) });
+            new[] { new Participant("me", $"{name}（主持人）", IsHost: true, CanControl: true) });
         // TODO(Windows)：这里接 IWebRtcService.CreatePeerConnection + 信令交换 SDP/ICE。
         return Task.FromResult(_current);
     }
@@ -27,11 +33,12 @@ public sealed class SessionManager : ISessionManager
     public Task<SessionInfo> JoinSessionAsync(string inviteLinkOrCode)
     {
         var roomId = inviteLinkOrCode.Trim().Split('/').Last();
+        var name = AppSettings.Current.UserName;
         _current = new SessionInfo(roomId, inviteLinkOrCode,
             new[]
             {
                 new Participant("host", "主持人", IsHost: true, CanControl: false),
-                new Participant("me", "我", IsHost: false, CanControl: false),
+                new Participant("me", name, IsHost: false, CanControl: false),
             });
         return Task.FromResult(_current);
     }
