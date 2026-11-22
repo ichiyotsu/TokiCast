@@ -6,42 +6,45 @@
     <Grid ColumnDefinitions="*,320" Padding="16">
         <!-- 投屏画面：MediaPlayerElement 接 WebRTC 远端视频轨；本地分享时显示采集预览 -->
         <Grid Grid.Column="0" CornerRadius="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-            <MediaPlayerElement x:Name="RemoteVideo" Stretch="Uniform" />
-            <!-- 远端多光标层：每个参与者一个带名字的光标 -->
-            <Canvas x:Name="CursorLayer" IsHitTestVisible="False" />
+            <!-- 远端画面占位：WebRTC 视频轨接线前不创建 MediaPlayer，避免在个别机器上加载闪退；接线后换回 MediaPlayerElement -->
+            <Grid x:Name="RemoteVideo">
+                <TextBlock Text="等待对方加入…" HorizontalAlignment="Center" VerticalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Grid>
+            <!-- 远端多光标层：每位参与者一个 Ellipse + 名字；光标画在这里不遮挡画面 -->
+            <Canvas x:Name="RemoteCursorLayer" IsHitTestVisible="False" />
             <StackPanel VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12" Spacing="6">
-                <InfoBar x:Name="E2eeBadge" Severity="Success" IsOpen="True" Title="E2EE"
+                <!-- MLS 密钥未建立前不显示 E2EE 徽标 -->
+                <InfoBar x:Name="E2eeBadge" Severity="Success" IsOpen="False" Title="E2EE"
                          Message="MLS + SFrame 已启用" />
                 <InfoBar x:Name="ControlRequestBar" Severity="Warning" IsOpen="False"
-                         Title="对方请求远程控制" Message="允许后对方可以移动你的鼠标、按键。"
-                         ActionButton="{x:Bind AllowControlButton}" />
+                         Title="对方请求远程控制" Message="允许后对方可以移动你的鼠标、按键。" />
             </StackPanel>
-            <!-- 底部控制条 -->
-            <CommandBar VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,12"
-                        DefaultLabelPosition="Right" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}">
-                <AppBarButton x:Name="MicButton" Icon="Microphone" Label="静音" Click="MicButton_Click" />
-                <AppBarButton x:Name="ControlButton" Icon="TouchPointer" Label="远程控制" Click="ControlButton_Click" />
-                <AppBarButton Icon="Chat" Label="聊天" Click="ChatButton_Click" />
-                <AppBarButton Icon="FullScreen" Label="全屏" Click="Fullscreen_Click" />
-                <AppBarSeparator />
-                <AppBarButton Icon="HangUp" Label="离开" Foreground="Red" Click="Leave_Click" />
-            </CommandBar>
         </Grid>
-
-        <!-- 右侧：成员 + 聊天 -->
-        <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="12">
-            <TextBlock Text="成员" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <ListView x:Name="ParticipantList" SelectionMode="None" MaxHeight="180" />
-            <TextBlock Text="聊天" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <ListView x:Name="ChatList" SelectionMode="None" Height="300" />
+        <StackPanel Grid.Column="1" Spacing="12">
+            <TextBlock Text="会话" Style="{StaticResource TitleTextBlockStyle}" />
+            <TextBox x:Name="SessionCodeBox" Header="会话码" IsReadOnly="True"
+                     PlaceholderText="开始分享后生成" />
             <StackPanel Orientation="Horizontal" Spacing="8">
-                <TextBox x:Name="ChatInput" PlaceholderText="输入消息…" Width="220"
-                         KeyDown="ChatInput_KeyDown" />
-                <Button Content="发送" Click="SendChat_Click" />
+                <Button x:Name="StartSharingButton" Content="开始分享" Click="StartSharing_Click" />
+                <Button x:Name="StopSharingButton" Content="停止分享" Click="StopSharing_Click" />
             </StackPanel>
-            <TextBlock Text="提示：聊天与媒体都不经过中心服务器，邀请链接只用来交换连接信息。"
-                       TextWrapping="Wrap" FontSize="12"
+            <TextBlock Text="远程控制" Style="{StaticResource SubtitleTextBlockStyle}" />
+            <ToggleSwitch x:Name="AllowControlToggle" Header="允许对方远程控制我"
+                          Toggled="AllowControlToggle_Toggled" />
+            <Button x:Name="RequestControlButton" Content="请求远程控制对方"
+                    Click="RequestControl_Click" />
+            <TextBlock x:Name="StatusText" Text="等待开始…" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <StackPanel Spacing="6">
+                <Button x:Name="CopyInviteLinkButton" Content="复制邀请链接"
+                        Click="CopyInviteLink_Click" />
+                <Button x:Name="LeaveSessionButton" Content="退出会话"
+                        Click="LeaveSession_Click" />
+            </StackPanel>
+            <!-- 诊断：手动把日志写到文件，方便没有调试器时定位闪退 -->
+            <Button x:Name="DumpLogButton" Content="导出诊断日志"
+                    Click="DumpLog_Click" />
         </StackPanel>
     </Grid>
 </Page>
