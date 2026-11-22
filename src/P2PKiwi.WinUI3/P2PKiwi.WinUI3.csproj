@@ -23,9 +23,16 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.6.250108002" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.1742" />
-    <!-- WebRTC 实现二选一（见 README）：先验证用 SIPSorcery，生产用 Native 封装。
-      默认不引用，避免把未选定的库编进包里。 -->
-    <!-- <PackageReference Include="SIPSorcery" Version="8.3.1" /> -->
+    <!-- WebRTC：SIPSorcery 8.0.23（.NET 8 线；8.3.1 不存在，不要写）。
+      远端音频接收走 RTPSession.OnAudioFrameReceived（Phase 0 已验证事件存在）；
+      MLS/SFrame 不在 SIPSorcery 里，E2EE 开关只存值、不接线、不亮徽标。 -->
+    <PackageReference Include="SIPSorcery" Version="8.0.23" />
+    <PackageReference Include="SIPSorceryMedia.Abstractions" Version="8.0.12" />
+    <PackageReference Include="SIPSorceryMedia.Windows" Version="8.0.14" />
+    <!-- 视频编解码 H.264：FFmpeg 7.x 共享 DLL 随安装包放在 exe 旁边（见发布说明），不要打进包里。 -->
+    <PackageReference Include="SIPSorceryMedia.FFmpeg" Version="8.0.12" />
+    <!-- 屏幕采集：Win2D 共享 D3D 设备（GraphicsCapture 的标准做法）。 -->
+    <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.3.2" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Assets\**" />
