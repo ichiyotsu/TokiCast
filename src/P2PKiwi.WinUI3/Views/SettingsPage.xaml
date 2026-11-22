@@ -2,41 +2,85 @@
     x:Class="P2PKiwi.WinUI3.Views.SettingsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:Microsoft.UI.Xaml.Controls">
-    <ScrollViewer Padding="24">
-        <!-- 内容左对齐固定：不靠 MaxWidth + Stretch 居中，避免宽窗口下内容漂到右侧；标题不重复写，左边栏头已经显示“设置” -->
-        <StackPanel Spacing="16" MaxWidth="760" HorizontalAlignment="Left">
-            <controls:Expander Header="画面" IsExpanded="True" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="8" Margin="0,12,0,0" HorizontalAlignment="Stretch">
-                    <ComboBox Header="分辨率" SelectedIndex="1" HorizontalAlignment="Stretch">
-                        <x:String>1280 × 720</x:String>
-                        <x:String>1920 × 1080</x:String>
-                        <x:String>2560 × 1440</x:String>
-                    </ComboBox>
-                    <Slider Header="帧率" Minimum="15" Maximum="60" Value="30" HorizontalAlignment="Stretch" />
-                    <Slider Header="码率 (Mbps)" Minimum="1" Maximum="20" Value="8" HorizontalAlignment="Stretch" />
-                </StackPanel>
-            </controls:Expander>
-            <controls:Expander Header="网络" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="8" Margin="0,12,0,0" HorizontalAlignment="Stretch">
-                    <TextBox Header="STUN 服务器" Text="stun:stun.l.google.com:19302" />
-                    <TextBox Header="TURN 服务器（可选，NAT 打不通时用）" PlaceholderText="turn:turn.example.com:3478" />
-                    <TextBox Header="TURN 用户名" PlaceholderText="" />
-                    <PasswordBox Header="TURN 密码" PlaceholderText="" />
-                    <TextBlock Text="STUN / TURN 只交换 ICE 连通信息，不转发聊天与媒体密钥。"
-                               TextWrapping="Wrap" FontSize="12"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
-            </controls:Expander>
-            <controls:Expander Header="隐私与安全" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="8" Margin="0,12,0,0" HorizontalAlignment="Stretch">
-                    <ToggleSwitch Header="远程控制默认关闭" IsOn="True" />
-                    <ToggleSwitch Header="新成员加入时提醒我" IsOn="True" />
-                    <TextBlock Text="端到端加密：MLS 管理成员密钥，SFrame 加密每一帧媒体。未建立 MLS 密钥前，会话页不会显示 E2EE 徽标。"
-                               TextWrapping="Wrap" FontSize="12"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
-            </controls:Expander>
-        </StackPanel>
-    </ScrollViewer>
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    FontWeight="Bold">
+    <Grid Padding="24">
+        <controls:TabView x:Name="SettingsTabs" IsAddTabButtonVisible="False">
+            <!-- 基本：对照原版设置页“基本” -->
+            <controls:TabViewItem Header="基本" IsClosable="False">
+                <ScrollViewer Padding="16">
+                    <StackPanel Spacing="12" Width="600" HorizontalAlignment="Left">
+                        <TextBox x:Name="UserNameBox" Header="用户名" Text="Kiwi" />
+                        <TextBox x:Name="ForegroundBox" Header="前景色" Text="#ffffff"
+                                 TextChanged="ForegroundBox_TextChanged" />
+                        <Border x:Name="ForegroundPreview" Width="48" Height="24" CornerRadius="4"
+                                HorizontalAlignment="Left" Background="White" />
+                        <TextBox x:Name="BackgroundBox" Header="背景色" Text="#0099ff"
+                                 TextChanged="BackgroundBox_TextChanged" />
+                        <Border x:Name="BackgroundPreview" Width="48" Height="24" CornerRadius="4"
+                                HorizontalAlignment="Left" Background="#0099ff" />
+                        <ComboBox x:Name="LanguageBox" Header="语言" SelectedIndex="0" HorizontalAlignment="Stretch">
+                            <x:String>zh</x:String>
+                            <x:String>en</x:String>
+                        </ComboBox>
+                        <TextBlock Text="选择您的首选语言（更改语言后，您需要重新启动应用程序）"
+                                   TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Button Content="保存" Style="{StaticResource AccentButtonStyle}" Click="Save_Click" />
+                        <TextBlock x:Name="BasicSavedHint" Text="已保存" Visibility="Collapsed"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </controls:TabViewItem>
+            <!-- 媒体：对照原版设置页“媒体”，加上本版的画面设置 -->
+            <controls:TabViewItem Header="媒体" IsClosable="False">
+                <ScrollViewer Padding="16">
+                    <StackPanel Spacing="12" Width="600" HorizontalAlignment="Left">
+                        <ComboBox x:Name="CameraBox" Header="摄像头" HorizontalAlignment="Stretch">
+                            <x:String>系统默认</x:String>
+                        </ComboBox>
+                        <ComboBox x:Name="MicrophoneBox" Header="麦克风" HorizontalAlignment="Stretch">
+                            <x:String>系统默认</x:String>
+                        </ComboBox>
+                        <CheckBox x:Name="MicOnConnectBox" Content="连接时麦克风是否打开" IsChecked="True" />
+                        <CheckBox x:Name="RecordBox" Content="录制别人共享给你的屏幕" />
+                        <ComboBox x:Name="ResolutionBox" Header="分辨率" HorizontalAlignment="Stretch">
+                            <x:String>1280 × 720</x:String>
+                            <x:String>1920 × 1080</x:String>
+                            <x:String>2560 × 1440</x:String>
+                        </ComboBox>
+                        <Slider x:Name="FrameRateSlider" Header="帧率" Minimum="15" Maximum="60" Value="30"
+                                HorizontalAlignment="Stretch" />
+                        <Slider x:Name="BitrateSlider" Header="码率 (Mbps)" Minimum="1" Maximum="20" Value="8"
+                                HorizontalAlignment="Stretch" />
+                        <Button Content="保存" Style="{StaticResource AccentButtonStyle}" Click="Save_Click" />
+                        <TextBlock x:Name="MediaSavedHint" Text="已保存" Visibility="Collapsed"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </controls:TabViewItem>
+            <!-- 高级：对照原版设置页“高级” -->
+            <controls:TabViewItem Header="高级" IsClosable="False">
+                <ScrollViewer Padding="16">
+                    <StackPanel Spacing="12" Width="600" HorizontalAlignment="Left">
+                        <CheckBox x:Name="BonjourBox" Content="启用 Bonjour（可选联系人服务器）" />
+                        <TextBox x:Name="BonjourUrlBox" Header="Bonjour 服务器 URL"
+                                 Text="https://bonjour.p2p.kiwi" />
+                        <CheckBox x:Name="DebugLogBox" Content="启用调试日志" />
+                        <CheckBox x:Name="E2eeBox" Content="端到端加密" IsChecked="True" />
+                        <CheckBox x:Name="SFrameBox" Content="加密媒体（SFrame）" IsChecked="True" />
+                        <TextBox x:Name="StunTurnBox" Header="STUN/TURN 服务器对象（用新行分隔）"
+                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="80"
+                                 Text='{"urls":"stun:stun.l.google.com:19302"}' />
+                        <TextBlock Text="STUN / TURN 只交换 ICE 连通信息，不转发聊天与媒体密钥。"
+                                   TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Button Content="保存" Style="{StaticResource AccentButtonStyle}" Click="Save_Click" />
+                        <TextBlock x:Name="AdvancedSavedHint" Text="已保存" Visibility="Collapsed"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </ScrollViewer>
+            </controls:TabViewItem>
+        </controls:TabView>
+    </Grid>
 </Page>
