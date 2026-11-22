@@ -14,7 +14,7 @@ public partial class App : Application
         UnhandledException += OnUnhandledException;
     }
 
-    private async void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)
+    private async void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs e)
     {
         e.Handled = true;
         try
