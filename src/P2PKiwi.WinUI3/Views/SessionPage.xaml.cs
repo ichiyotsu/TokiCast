@@ -1,10 +1,14 @@
+using System.IO;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Shapes;
 using P2PKiwi.WinUI3.Services;
 using P2PKiwi.WinUI3.ViewModels;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Media.Capture;
 using Windows.System;
 using Windows.UI;
@@ -19,12 +23,26 @@ public sealed partial class SessionPage : Page
     private MediaCapture? _camera;
     private bool _cameraOn;
 
+    // 远端视频：WriteableBitmap 只在尺寸变化时重建；帧先攒着，UI 线程一次只画最新的一帧。
+    private WriteableBitmap? _remoteBitmap;
+    private byte[]? _pendingFrame;
+    private int _pendingWidth;
+    private int _pendingHeight;
+    private bool _blitPending;
+
     public SessionPage()
     {
         InitializeComponent();
         ParticipantList.ItemsSource = _vm.Participants;
         ChatList.ItemsSource = _vm.Messages;
         _vm.RemoteCursorMoved += OnRemoteCursorMoved;
+        _vm.RemoteVideoFrame += OnRemoteVideoFrame;
+        _vm.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SessionViewModel.IsMicMuted)) UpdateMicButton();
+            else if (e.PropertyName == nameof(SessionViewModel.IsRecording)) UpdateRecordButton();
+            else if (e.PropertyName == nameof(SessionViewModel.AnswerLink)) UpdateAnswerPanel();
+        };
         // “允许”按钮在代码里创建一次再挂上去，不用 x:Bind 在加载时构造，
         // 避免未处理异常导致整页加载闪退。
         var allowButton = new Button { Content = "允许" };
@@ -32,11 +50,14 @@ public sealed partial class SessionPage : Page
         ControlRequestBar.ActionButton = allowButton;
     }
 
-    protected override void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    protected override async void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        if (e.Parameter is string link) _ = _vm.JoinAsync(link);
-        else _ = _vm.LoadCurrentAsync();
+        if (e.Parameter is string link) await _vm.JoinAsync(link);
+        else await _vm.LoadCurrentAsync();
+        UpdateMicButton();
+        UpdateRecordButton();
+        UpdateAnswerPanel();
     }
 
     private void OnRemoteCursorMoved(string peerId, string name, double x, double y)
@@ -85,7 +106,62 @@ public sealed partial class SessionPage : Page
         }
     }
 
-    private void MicButton_Click(object sender, RoutedEventArgs e) => _vm.ToggleMic();
+    /// <summary>远端视频帧（BGRA8）：画到 WriteableBitmap；只在尺寸变化时重建位图。</summary>
+    private void OnRemoteVideoFrame(byte[] bgra, int width, int height)
+    {
+        _pendingFrame = bgra;
+        _pendingWidth = width;
+        _pendingHeight = height;
+        if (_blitPending) return;
+        _blitPending = true;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            _blitPending = false;
+            var frame = _pendingFrame;
+            if (frame == null) return;
+            int w = _pendingWidth, h = _pendingHeight;
+            if (w <= 0 || h <= 0) return;
+            if (_remoteBitmap == null || _remoteBitmap.PixelWidth != w || _remoteBitmap.PixelHeight != h)
+            {
+                _remoteBitmap = new WriteableBitmap(w, h);
+                RemoteVideoImage.Source = _remoteBitmap;
+                RemoteVideoPlaceholder.Visibility = Visibility.Collapsed;
+            }
+            using var stream = _remoteBitmap.PixelBuffer.AsStream();
+            stream.Seek(0, SeekOrigin.Begin);
+            stream.Write(frame, 0, Math.Min(frame.Length, w * h * 4));
+            _remoteBitmap.Invalidate();
+        });
+    }
+
+    private void UpdateMicButton()
+    {
+        MicButton.Label = _vm.IsMicMuted ? "取消静音" : "静音";
+    }
+
+    private void UpdateRecordButton()
+    {
+        RecordButton.Label = _vm.IsRecording ? "停止录制" : "录制";
+    }
+
+    /// <summary>加入方：显示 answer 链接面板；接通后（AnswerLink 被清空）自动隐藏。</summary>
+    private void UpdateAnswerPanel()
+    {
+        var link = _vm.AnswerLink;
+        AnswerPanel.Visibility = string.IsNullOrWhiteSpace(link) ? Visibility.Collapsed : Visibility.Visible;
+        if (!string.IsNullOrWhiteSpace(link)) AnswerLinkBox.Text = link;
+    }
+
+    private void CopyAnswer_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AnswerLinkBox.Text)) return;
+        var package = new DataPackage();
+        package.SetText(AnswerLinkBox.Text);
+        Clipboard.SetContent(package);
+    }
+
+    private void MicButton_Click(object sender, RoutedEventArgs e) => _ = _vm.ToggleMicAsync();
+    private void RecordButton_Click(object sender, RoutedEventArgs e) => _ = _vm.ToggleRecordingAsync();
     private void ControlButton_Click(object sender, RoutedEventArgs e) => _vm.ToggleRemoteControl();
     private void ChatButton_Click(object sender, RoutedEventArgs e) => ChatInput.Focus(FocusState.Programmatic);
     private void Fullscreen_Click(object sender, RoutedEventArgs e) => App.MainWindow?.ToggleFullscreen();
