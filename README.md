@@ -135,6 +135,12 @@ App 图标用 Keyline Icons 的 `cast-two-tone`（MIT 协议，24×24，`current
   - 左边栏：宽度按 Tokilive 的 WinUI 设计，展开 200 / 收起 48，`PaneDisplayMode` 改 Auto。
   - E2EE 徽标：MLS 密钥未建立前不再显示“已启用”。
   - 发布：Windows exe 安装包 `TokiCast-0.1.1.exe`（Inno Setup）。
+  ## 0.1.2（会话页图标闪退 + 设置页偏移）
+  - 修复：点“开始分享”进会话页仍闪退——会话页底部按钮用了不存在的 `Chat` 图标名，
+    `IconElement` 转换失败，现改成 `Message`（聊天气泡）；全局兜底已把这次错误弹窗报出来。
+    - 设置页：删掉与左边栏头重复的“设置”大标题；内容改为左对齐固定，宽窗口下不再漂到右侧；
+      展开项里的下拉框与滑杆改为拉满宽度，不再挤在卡片右侧。
+      - 发布：Windows exe 安装包 `TokiCast-0.1.2.exe`（Inno Setup）。
   
 ## 许可与来源
 
