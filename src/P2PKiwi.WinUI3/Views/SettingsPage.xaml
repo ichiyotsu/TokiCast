@@ -70,8 +70,7 @@
                         <CheckBox x:Name="E2eeBox" Content="端到端加密" IsChecked="True" />
                         <CheckBox x:Name="SFrameBox" Content="加密媒体（SFrame）" IsChecked="True" />
                         <TextBox x:Name="StunTurnBox" Header="STUN/TURN 服务器对象（用新行分隔）"
-                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="80"
-                                 Text='{"urls":"stun:stun.l.google.com:19302"}' />
+                                 TextWrapping="Wrap" AcceptsReturn="True" MinHeight="80" />
                         <TextBlock Text="STUN / TURN 只交换 ICE 连通信息，不转发聊天与媒体密钥。"
                                    TextWrapping="Wrap" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
