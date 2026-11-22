@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using P2PKiwi.WinUI3.Services;
 using P2PKiwi.WinUI3.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
+using WinRT.Interop;
 
 namespace P2PKiwi.WinUI3.Views;
 
@@ -23,22 +24,46 @@ public sealed partial class HomePage : Page
     {
         try
         {
+            if (App.MainWindow == null)
+            {
+                await ShowErrorAsync("开始分享失败", "主窗口未就绪。");
+                return;
+            }
+            // 先让用户在系统选择器里选要分享的显示器/窗口；取消则不开始。
+            var item = await ScreenCaptureVideoSource.PickCaptureItemAsync(WindowNative.GetWindowHandle(App.MainWindow));
+            if (item is null) return;
             var link = await _vm.StartSharingAsync(
                 SourcePicker.SelectedItem as string,
                 ShareAudioCheck.IsChecked == true,
-                AllowControlCheck.IsChecked == true);
+                AllowControlCheck.IsChecked == true,
+                item);
             if (link is null) return;
             // 第一次开始分享默认同时复制链接。
             _lastLink = link;
             CopyToClipboard(link);
             CopyLinkButton.IsEnabled = true;
             // E2EE 徽标等 MLS 密钥真正建立后再显示，现在不打开。
-            App.MainWindow?.NavigateToSession();
+            // 不立刻跳会话页：等对方发回 answer 链接，粘贴到下面的 answer 框并点「允许加入」再进会话页。
         }
         catch (Exception ex)
         {
             // 开始失败改为弹窗提示，不让未处理异常直接闪退。
             await ShowErrorAsync("开始分享失败", ex.Message);
+        }
+    }
+
+    /// <summary>主持方：粘贴对方发回的 answer 链接，完成连接后进会话页。</summary>
+    private async void AllowJoin_Click(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(AnswerLinkBox.Text)) return;
+        try
+        {
+            await _vm.CompleteSharingAsync(AnswerLinkBox.Text.Trim());
+            App.MainWindow?.NavigateToSession();
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorAsync("允许加入失败", ex.Message);
         }
     }
 
