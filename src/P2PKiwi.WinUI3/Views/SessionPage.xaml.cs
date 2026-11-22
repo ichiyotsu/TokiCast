@@ -9,7 +9,6 @@ using Microsoft.UI.Xaml.Shapes;
 using P2PKiwi.WinUI3.Services;
 using P2PKiwi.WinUI3.ViewModels;
 using Windows.ApplicationModel.DataTransfer;
-using Windows.Media.Capture;
 using Windows.System;
 using Windows.UI;
 
@@ -20,7 +19,7 @@ public sealed partial class SessionPage : Page
     private readonly SessionViewModel _vm = new(SessionManager.Shared);
     private readonly Dictionary<string, (Polygon Cursor, TextBlock Label)> _cursors = new();
 
-    private MediaCapture? _camera;
+    private readonly CameraPreviewService _cameraPreview = new();
     private bool _cameraOn;
 
     // 远端视频：WriteableBitmap 只在尺寸变化时重建；帧先攒着，UI 线程一次只画最新的一帧。
@@ -165,43 +164,36 @@ public sealed partial class SessionPage : Page
     private void ControlButton_Click(object sender, RoutedEventArgs e) => _vm.ToggleRemoteControl();
     private void ChatButton_Click(object sender, RoutedEventArgs e) => ChatInput.Focus(FocusState.Programmatic);
     private void Fullscreen_Click(object sender, RoutedEventArgs e) => App.MainWindow?.ToggleFullscreen();
-    private void Leave_Click(object sender, RoutedEventArgs e)
+    private async void Leave_Click(object sender, RoutedEventArgs e)
     {
+        await _cameraPreview.StopAsync();
         _ = _vm.LeaveAsync();
         App.MainWindow?.NavigateToHome();
     }
 
-    /// <summary>本地摄像头小窗：开 = MediaCapture 预览，关 = 停预览。失败时只留占位文字，不弹错。</summary>
+    /// <summary>本地摄像头小窗：开 = MediaFrameReader 预览（WinUI 3 没有 CaptureElement），关 = 停预览。失败时只留占位文字，不弹错。</summary>
     private async void CameraButton_Click(object sender, RoutedEventArgs e)
     {
         if (_cameraOn)
         {
             _cameraOn = false;
-            try { if (_camera is not null) await _camera.StopPreviewAsync(); } catch { }
-            _camera?.Dispose();
-            _camera = null;
-            CameraPreview.Source = null;
+            await _cameraPreview.StopAsync();
+            CameraPreviewImage.Source = null;
+            CameraPlaceholder.Text = "摄像头未开启";
             CameraPlaceholder.Visibility = Visibility.Visible;
             CameraPiP.Visibility = Visibility.Collapsed;
             return;
         }
-        try
+        var ok = await _cameraPreview.StartAsync(DispatcherQueue, AppSettings.Current.CameraDevice);
+        if (ok && _cameraPreview.Source is not null)
         {
-            _camera = new MediaCapture();
-            await _camera.InitializeAsync(new MediaCaptureInitializationSettings
-            {
-                StreamingCaptureMode = StreamingCaptureMode.Video,
-            });
-            CameraPreview.Source = _camera;
-            await _camera.StartPreviewAsync();
             _cameraOn = true;
+            CameraPreviewImage.Source = _cameraPreview.Source;
             CameraPlaceholder.Visibility = Visibility.Collapsed;
             CameraPiP.Visibility = Visibility.Visible;
         }
-        catch
+        else
         {
-            _camera?.Dispose();
-            _camera = null;
             CameraPlaceholder.Text = "摄像头不可用";
             CameraPiP.Visibility = Visibility.Visible;
         }
