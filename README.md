@@ -125,8 +125,17 @@ App 图标用 Keyline Icons 的 `cast-two-tone`（MIT 协议，24×24，`current
 - Win10 1809+ 适配：Mica 自动回退 Acrylic / 纯色，UI 不变。
 - 图标：Keyline `cast-two-tone`，白字 on #6750A4。
 - 实话：这一版是骨架——WebRTC、画面采集、远程输入、MLS/SFrame 还是接口 / 占位，真投屏要等接线完成后才通。发 0.1.0 是为了先把工程、图标和 CI 发布链路立起来。
-- 发布：打 tag `v0.1.0` 触发 `.github/workflows/release.yml`，在 windows-latest 上编 Release x64，产物重命名为 `TokiCast-0.1.0.msixbundle` 挂到 Release 上，标题只写 `0.1.0`。
+- 发布：打 tag `v0.1.0` 触发 `.github/workflows/release.yml`，在 windows-latest 上编
+    Release x64，产物是 Inno Setup 安装器 `TokiCast-0.1.0.exe`，标题只写 `0.1.0`。
+  （最初挂的是 `.msixbundle`，同日按 Windows 发 exe 的规矩换成了 exe 安装器。）
+  ## 0.1.1（闪退修复）
+  
 
+  - 修复：点“开始分享”或左边栏“会话”后闪退——会话页加载时 `MediaPlayerElement` 与 `x:Bind` 按钮会触发未处理异常，现已去掉这两个加载时构造（远端画面改占位，“允许”按钮改在代码里创建）；开始 / 加入失败改为弹窗提示；另加全局异常兜底，出错时弹窗显示错误信息，不再直接退出。
+  - 左边栏：宽度按 Tokilive 的 WinUI 设计，展开 200 / 收起 48，`PaneDisplayMode` 改 Auto。
+  - E2EE 徽标：MLS 密钥未建立前不再显示“已启用”。
+  - 发布：Windows exe 安装包 `TokiCast-0.1.1.exe`（Inno Setup）。
+  
 ## 许可与来源
 
 p2p.kiwi 原版 MIT 协议（`dont-be-evil-company/p2p.kiwi`）。本复刻只参考其
