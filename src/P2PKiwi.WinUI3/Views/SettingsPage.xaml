@@ -4,21 +4,21 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls">
     <ScrollViewer Padding="24">
-        <StackPanel Spacing="16" MaxWidth="760">
-            <TextBlock Text="设置" Style="{StaticResource TitleLargeTextBlockStyle}" />
+        <!-- 内容左对齐固定：不靠 MaxWidth + Stretch 居中，避免宽窗口下内容漂到右侧；标题不重复写，左边栏头已经显示“设置” -->
+        <StackPanel Spacing="16" MaxWidth="760" HorizontalAlignment="Left">
             <controls:Expander Header="画面" IsExpanded="True" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="8" Margin="0,12,0,0">
+                <StackPanel Spacing="8" Margin="0,12,0,0" HorizontalAlignment="Stretch">
                     <ComboBox Header="分辨率" SelectedIndex="1" HorizontalAlignment="Stretch">
                         <x:String>1280 × 720</x:String>
                         <x:String>1920 × 1080</x:String>
                         <x:String>2560 × 1440</x:String>
                     </ComboBox>
-                    <Slider Header="帧率" Minimum="15" Maximum="60" Value="30" />
-                    <Slider Header="码率 (Mbps)" Minimum="1" Maximum="20" Value="8" />
+                    <Slider Header="帧率" Minimum="15" Maximum="60" Value="30" HorizontalAlignment="Stretch" />
+                    <Slider Header="码率 (Mbps)" Minimum="1" Maximum="20" Value="8" HorizontalAlignment="Stretch" />
                 </StackPanel>
             </controls:Expander>
             <controls:Expander Header="网络" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="8" Margin="0,12,0,0">
+                <StackPanel Spacing="8" Margin="0,12,0,0" HorizontalAlignment="Stretch">
                     <TextBox Header="STUN 服务器" Text="stun:stun.l.google.com:19302" />
                     <TextBox Header="TURN 服务器（可选，NAT 打不通时用）" PlaceholderText="turn:turn.example.com:3478" />
                     <TextBox Header="TURN 用户名" PlaceholderText="" />
@@ -29,7 +29,7 @@
                 </StackPanel>
             </controls:Expander>
             <controls:Expander Header="隐私与安全" HorizontalAlignment="Stretch">
-                <StackPanel Spacing="8" Margin="0,12,0,0">
+                <StackPanel Spacing="8" Margin="0,12,0,0" HorizontalAlignment="Stretch">
                     <ToggleSwitch Header="远程控制默认关闭" IsOn="True" />
                     <ToggleSwitch Header="新成员加入时提醒我" IsOn="True" />
                     <TextBlock Text="端到端加密：MLS 管理成员密钥，SFrame 加密每一帧媒体。未建立 MLS 密钥前，会话页不会显示 E2EE 徽标。"
