@@ -2,13 +2,15 @@
     x:Class="P2PKiwi.WinUI3.Views.HomePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:Microsoft.UI.Xaml.Controls">
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    FontWeight="Bold">
     <ScrollViewer Padding="24">
         <!-- 内容定宽 760 左对齐：只写 MaxWidth 会让面板按内容收窄；定死宽度才撑满 -->
         <StackPanel Spacing="16" Width="760" HorizontalAlignment="Left">
             <TextBlock Text="无需账号，点对点直连。" Style="{StaticResource TitleLargeTextBlockStyle}" />
             <TextBlock Text="分享屏幕、语音与聊天都走 WebRTC 直连，不经过中心云。端到端加密由 MLS + SFrame 提供，STUN / TURN 只用来打通网络。"
                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
 
             <!-- 发起 -->
             <controls:Expander Header="发起投屏" IsExpanded="True" HorizontalAlignment="Stretch">
@@ -30,6 +32,7 @@
                 </StackPanel>
             </controls:Expander>
 
+
             <!-- 加入 -->
             <controls:Expander Header="加入会话" HorizontalAlignment="Stretch">
                 <StackPanel Spacing="12" Margin="0,12,0,0">
@@ -41,6 +44,7 @@
                     <Button Content="加入" Click="Join_Click" />
                 </StackPanel>
             </controls:Expander>
+
 
             <TextBlock Text="最近会话" Style="{StaticResource SubtitleTextBlockStyle}" />
             <ListView x:Name="RecentList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="RecentList_ItemClick">
