@@ -1,8 +1,16 @@
 namespace P2PKiwi.WinUI3.Models;
 
-public sealed record Participant(string Id, string Name, bool IsHost, bool CanControl);
-public sealed record ChatMessage(string Sender, string Text, DateTime? At = null);
-public sealed record RecentSession(string Title, string Subtitle);
+public sealed record Participant(string Id, string Name, bool IsHost, bool CanControl)
+{
+    public string RoleText => IsHost ? "主持人" : "成员";
+}
+
+public sealed record ChatMessage(string Sender, string Text, DateTime? At = null)
+{
+    public string TimeText => At?.ToString("HH:mm") ?? string.Empty;
+}
+
+public sealed record RecentSession(string Title, string Subtitle, string InviteLink = "");
 
 public sealed record SessionOptions
 {
