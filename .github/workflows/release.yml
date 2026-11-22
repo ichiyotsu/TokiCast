@@ -54,6 +54,27 @@ jobs:
           if (-not $exe) { throw "P2PKiwi.WinUI3.exe was not published" }
           echo "dir=$($exe.DirectoryName)" >> $env:GITHUB_OUTPUT
           Get-ChildItem $exe.DirectoryName | Select-Object Name, Length
+      - name: Add FFmpeg 7.1.5 DLLs (video encoding)
+        shell: pwsh
+        run: |
+          # SIPSorceryMedia.FFmpeg 要 FFmpeg 7.x 共享库放在 exe 同目录（libx264 编码）。
+          # gyan.dev 已下架 7.1.x（只剩 9.x，ABI 不对），改用钉死的 BtbN 构建：
+          # n7.1.5，tag autobuild-2026-07-31-14-10，GPL shared（LGPL 版没有 libx264）。
+          $url = "https://github.com/FFmpeg-Builds/FFmpeg-Builds/releases/download/autobuild-2026-07-31-14-10/ffmpeg-n7.1.5-12-g1fdbca85aa-win64-gpl-shared-7.1.zip"
+          $zip = "$env:RUNNER_TEMP\ffmpeg-7.1.5-shared.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $dir = "$env:RUNNER_TEMP\ffmpeg-7.1.5"
+          Expand-Archive -Path $zip -DestinationPath $dir -Force
+          $bin = Get-ChildItem -Path $dir -Recurse -Filter "avcodec-61.dll" | Select-Object -First 1
+          if (-not $bin) { throw "avcodec-61.dll not found in FFmpeg zip" }
+          $dlls = @("avcodec-61.dll","avformat-61.dll","avutil-59.dll","swscale-8.dll","swresample-5.dll")
+          foreach ($dll in $dlls) {
+            $src = Join-Path $bin.DirectoryName $dll
+            if (-not (Test-Path $src)) { throw "Missing FFmpeg DLL in zip: $dll" }
+            Copy-Item $src "${{ steps.publish.outputs.dir }}\$dll"
+          }
+          Get-ChildItem "${{ steps.publish.outputs.dir }}" -Filter "av*.dll" | Select-Object Name, Length
+          Get-ChildItem "${{ steps.publish.outputs.dir }}" -Filter "sw*.dll" | Select-Object Name, Length
       - name: Install Inno Setup
         run: choco install innosetup -y
       - name: Build installer
