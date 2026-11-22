@@ -11,7 +11,6 @@
             <TextBlock Text="分享屏幕、语音与聊天都走 WebRTC 直连，不经过中心云。端到端加密由 MLS + SFrame 提供，STUN / TURN 只用来打通网络。"
                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
-
             <!-- 发起 -->
             <controls:Expander Header="发起投屏" IsExpanded="True" HorizontalAlignment="Stretch">
                 <StackPanel Spacing="12" Margin="0,12,0,0">
@@ -27,11 +26,17 @@
                         <Button x:Name="CopyLinkButton" Content="复制链接" IsEnabled="False"
                                 Click="CopyLink_Click" />
                     </StackPanel>
+                    <!-- 主持方：对方发回的 answer 链接，粘贴后点「允许加入」才接通 -->
+                    <TextBox x:Name="AnswerLinkBox" Header="对方发回的 answer 链接"
+                             PlaceholderText="粘贴加入方发回的 answer 链接…" TextWrapping="Wrap" />
+                    <Button Content="允许加入" Click="AllowJoin_Click" />
+                    <TextBlock Text="开始分享后把邀请链接发给对方；对方加入后会把 answer 链接发回，粘贴到这里点「允许加入」即可接通（无中心服务器，只能这样两步交换）。"
+                               TextWrapping="Wrap" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <InfoBar x:Name="E2eeBar" Severity="Success" IsOpen="False"
                              Title="端到端加密已启用" Message="MLS 密钥已建立，媒体帧经 SFrame 加密。" />
                 </StackPanel>
             </controls:Expander>
-
 
             <!-- 加入 -->
             <controls:Expander Header="加入会话" HorizontalAlignment="Stretch">
@@ -44,7 +49,6 @@
                     <Button Content="加入" Click="Join_Click" />
                 </StackPanel>
             </controls:Expander>
-
 
             <TextBlock Text="最近会话" Style="{StaticResource SubtitleTextBlockStyle}" />
             <ListView x:Name="RecentList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="RecentList_ItemClick">
