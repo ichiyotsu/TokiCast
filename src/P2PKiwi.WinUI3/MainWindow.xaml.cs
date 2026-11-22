@@ -29,18 +29,40 @@ public sealed partial class MainWindow : Window
         NavView.Header = "主页";
     }
 
+    /// <summary>统一导航入口：页面跳转时同步边栏选中项与标题，避免标题还停在上一页。</summary>
+    public void NavigateToHome()
+    {
+        ContentFrame.Navigate(typeof(HomePage));
+        NavView.SelectedItem = NavView.MenuItems[0];
+        NavView.Header = "主页";
+    }
+
+    public void NavigateToSession(string? link = null)
+    {
+        ContentFrame.Navigate(typeof(SessionPage), link);
+        NavView.SelectedItem = NavView.MenuItems[1];
+        NavView.Header = "会话";
+    }
+
+    /// <summary>全屏切换：再点一次回到普通窗口。</summary>
+    public void ToggleFullscreen()
+    {
+        var presenter = AppWindow.Presenter;
+        presenter.SetPresentation(presenter.Kind == AppWindowPresentationKind.FullScreen
+            ? AppWindowPresentationKind.Default
+            : AppWindowPresentationKind.FullScreen);
+    }
+
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
         if (args.SelectedItem is not NavigationViewItem item) return;
         switch (item.Tag as string)
         {
             case "home":
-                ContentFrame.Navigate(typeof(HomePage));
-                NavView.Header = "主页";
+                NavigateToHome();
                 break;
             case "session":
-                ContentFrame.Navigate(typeof(SessionPage));
-                NavView.Header = "会话";
+                NavigateToSession();
                 break;
         }
         if (args.IsSettingsSelected)
