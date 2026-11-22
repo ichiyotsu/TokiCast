@@ -2,7 +2,8 @@
     x:Class="P2PKiwi.WinUI3.Views.SessionPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:controls="using:Microsoft.UI.Xaml.Controls">
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    FontWeight="Bold">
     <Grid ColumnDefinitions="*,320" Padding="16">
         <!-- 投屏画面：MediaPlayerElement 接 WebRTC 远端视频轨；本地分享时显示采集预览 -->
         <Grid Grid.Column="0" CornerRadius="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
@@ -26,7 +27,7 @@
                     HorizontalAlignment="Right" VerticalAlignment="Top"
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
                 <Grid>
-                    <CaptureElement x:Name="CameraPreview" Stretch="UniformToFill" />
+                    <controls:CaptureElement x:Name="CameraPreview" Stretch="UniformToFill" />
                     <TextBlock x:Name="CameraPlaceholder" Text="摄像头未开启"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
