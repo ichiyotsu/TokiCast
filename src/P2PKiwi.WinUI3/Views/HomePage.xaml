@@ -4,8 +4,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls">
     <ScrollViewer Padding="24">
-        <!-- 内容左对齐固定：不靠 MaxWidth + Stretch 居中，避免宽窗口下内容漂移 -->
-        <StackPanel Spacing="16" MaxWidth="760" HorizontalAlignment="Left">
+        <!-- 内容定宽 760 左对齐：只写 MaxWidth 会让面板按内容收窄；定死宽度才撑满 -->
+        <StackPanel Spacing="16" Width="760" HorizontalAlignment="Left">
             <TextBlock Text="无需账号，点对点直连。" Style="{StaticResource TitleLargeTextBlockStyle}" />
             <TextBlock Text="分享屏幕、语音与聊天都走 WebRTC 直连，不经过中心云。端到端加密由 MLS + SFrame 提供，STUN / TURN 只用来打通网络。"
                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -19,10 +19,12 @@
                         <CheckBox x:Name="ShareAudioCheck" Content="同时分享系统声音" IsChecked="True" />
                         <CheckBox x:Name="AllowControlCheck" Content="允许对方远程控制" IsChecked="False" />
                     </StackPanel>
-                    <Button Content="开始分享并复制邀请链接" Style="{StaticResource AccentButtonStyle}"
-                            Click="StartSharing_Click" />
-                    <TextBox x:Name="InviteLinkBox" Header="邀请链接" IsReadOnly="True"
-                             PlaceholderText="开始分享后这里会出现 p2p.kiwi/session/… 链接" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="开始分享" Style="{StaticResource AccentButtonStyle}"
+                                Click="StartSharing_Click" />
+                        <Button x:Name="CopyLinkButton" Content="复制链接" IsEnabled="False"
+                                Click="CopyLink_Click" />
+                    </StackPanel>
                     <InfoBar x:Name="E2eeBar" Severity="Success" IsOpen="False"
                              Title="端到端加密已启用" Message="MLS 密钥已建立，媒体帧经 SFrame 加密。" />
                 </StackPanel>
@@ -32,13 +34,16 @@
             <controls:Expander Header="加入会话" HorizontalAlignment="Stretch">
                 <StackPanel Spacing="12" Margin="0,12,0,0">
                     <TextBox x:Name="JoinLinkBox" Header="邀请链接或房间码"
-                             PlaceholderText="https://p2p.kiwi/session/… 或 6 位房间码" />
+                             PlaceholderText="https://p2p.kiwi/session/… 或 8 位房间码" />
+                    <TextBlock Text="房间码就是邀请链接里 session/ 后面的 8 位字符，贴完整链接或只贴码都可以。"
+                               TextWrapping="Wrap" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Button Content="加入" Click="Join_Click" />
                 </StackPanel>
             </controls:Expander>
 
             <TextBlock Text="最近会话" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <ListView x:Name="RecentList" SelectionMode="None">
+            <ListView x:Name="RecentList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="RecentList_ItemClick">
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Padding="0,8">
