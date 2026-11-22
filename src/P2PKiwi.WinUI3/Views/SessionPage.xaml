@@ -3,13 +3,18 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
+    xmlns:local="using:P2PKiwi.WinUI3.Views"
     FontWeight="Bold">
+    <Page.Resources>
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Page.Resources>
     <Grid ColumnDefinitions="*,320" Padding="16">
         <!-- 投屏画面：MediaPlayerElement 接 WebRTC 远端视频轨；本地分享时显示采集预览 -->
         <Grid Grid.Column="0" CornerRadius="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-            <!-- 远端画面占位：WebRTC 视频轨接线前不创建 MediaPlayer，避免在个别机器上加载闪退；接线后换回 MediaPlayerElement -->
+            <!-- 远端画面：WriteableBitmap 显示解码帧；没画面时显示占位文字 -->
             <Grid x:Name="RemoteVideo">
-                <TextBlock Text="等待对方加入…" HorizontalAlignment="Center" VerticalAlignment="Center"
+                <Image x:Name="RemoteVideoImage" Stretch="Uniform" />
+                <TextBlock x:Name="RemoteVideoPlaceholder" Text="等待对方加入…" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </Grid>
             <!-- 远端多光标层：每个参与者一个带名字的光标 -->
@@ -20,6 +25,16 @@
                          Message="MLS + SFrame 已启用" />
                 <InfoBar x:Name="ControlRequestBar" Severity="Warning" IsOpen="False"
                          Title="对方请求远程控制" Message="允许后对方可以移动你的鼠标、按键。" />
+                <!-- 加入方：把 answer 链接发回主持人（接通后自动隐藏） -->
+                <Border x:Name="AnswerPanel" Visibility="Collapsed" CornerRadius="8" Padding="12"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="把这条 answer 链接发回主持人，主持人粘贴并点「允许加入」后即可接通。"
+                                   TextWrapping="Wrap" FontSize="12" />
+                        <TextBox x:Name="AnswerLinkBox" IsReadOnly="True" TextWrapping="Wrap" />
+                        <Button Content="复制 answer 链接" Click="CopyAnswer_Click" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
             <!-- 本地摄像头小窗：右上角画中画，默认关闭 -->
             <Border x:Name="CameraPiP" Visibility="Collapsed"
@@ -44,6 +59,8 @@
                               ToolTipService.ToolTip="远程控制" Click="ControlButton_Click" />
                 <AppBarButton Icon="Message" Label="聊天"
                               ToolTipService.ToolTip="聊天" Click="ChatButton_Click" />
+                <AppBarButton x:Name="RecordButton" Icon="Camera" Label="录制"
+                              ToolTipService.ToolTip="录制对方屏幕" Click="RecordButton_Click" />
                 <AppBarButton Icon="FullScreen" Label="全屏"
                               ToolTipService.ToolTip="全屏" Click="Fullscreen_Click" />
                 <AppBarSeparator />
@@ -59,6 +76,9 @@
                 <ListView.ItemTemplate>
                     <DataTemplate>
                         <StackPanel Orientation="Horizontal" Spacing="8" Padding="0,6">
+                            <!-- 说话指示：绿点（RMS 阈值 + 400ms 保持） -->
+                            <Ellipse Width="8" Height="8" Fill="Green" VerticalAlignment="Center"
+                                     Visibility="{Binding IsSpeaking, Converter={StaticResource BoolToVisibilityConverter}}" />
                             <TextBlock Text="{Binding Name}" />
                             <TextBlock Text="{Binding RoleText}" FontSize="12"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
