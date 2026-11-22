@@ -4,8 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     Title="TokiCast">
-    <!-- 全站粗体：FontWeight 会继承到树下所有文字 -->
-    <Grid FontWeight="Bold">
+    <Grid>
         <!-- 左边栏宽度按 Tokilive 的 WinUI 设计：展开 200 / 收起 48 -->
         <controls:NavigationView x:Name="NavView"
             IsBackButtonVisible="Collapsed"
@@ -13,6 +12,7 @@
             PaneDisplayMode="Auto"
             OpenPaneLength="200"
             CompactPaneLength="48"
+            FontWeight="Bold"
             SelectionChanged="NavView_SelectionChanged">
             <controls:NavigationView.PaneHeader>
                 <TextBlock Text="TokiCast" FontSize="20" FontWeight="Bold" Margin="16,12,0,8" />
