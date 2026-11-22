@@ -47,10 +47,9 @@ public sealed partial class MainWindow : Window
     /// <summary>全屏切换：再点一次回到普通窗口。</summary>
     public void ToggleFullscreen()
     {
-        var presenter = AppWindow.Presenter;
-        presenter.SetPresentation(presenter.Kind == AppWindowPresentationKind.FullScreen
-            ? AppWindowPresentationKind.Default
-            : AppWindowPresentationKind.FullScreen);
+        AppWindow.SetPresenter(AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen
+            ? AppWindowPresenterKind.Default
+            : AppWindowPresenterKind.FullScreen);
     }
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
