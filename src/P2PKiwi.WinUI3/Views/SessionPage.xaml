@@ -20,24 +20,67 @@
                 <InfoBar x:Name="ControlRequestBar" Severity="Warning" IsOpen="False"
                          Title="对方请求远程控制" Message="允许后对方可以移动你的鼠标、按键。" />
             </StackPanel>
-            <!-- 底部控制条 -->
+            <!-- 本地摄像头小窗：右上角画中画，默认关闭 -->
+            <Border x:Name="CameraPiP" Visibility="Collapsed"
+                    Width="220" Height="124" CornerRadius="8" Margin="12"
+                    HorizontalAlignment="Right" VerticalAlignment="Top"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                <Grid>
+                    <CaptureElement x:Name="CameraPreview" Stretch="UniformToFill" />
+                    <TextBlock x:Name="CameraPlaceholder" Text="摄像头未开启"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </Grid>
+            </Border>
+            <!-- 底部控制条：纯图标，悬停显示名称 -->
             <CommandBar VerticalAlignment="Bottom" HorizontalAlignment="Center" Margin="0,0,0,12"
-                        DefaultLabelPosition="Right" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}">
-                <AppBarButton x:Name="MicButton" Icon="Microphone" Label="静音" Click="MicButton_Click" />
-                <AppBarButton x:Name="ControlButton" Icon="TouchPointer" Label="远程控制" Click="ControlButton_Click" />
-                <AppBarButton Icon="Message" Label="聊天" Click="ChatButton_Click" />
-                <AppBarButton Icon="FullScreen" Label="全屏" Click="Fullscreen_Click" />
+                        DefaultLabelPosition="Collapsed" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}">
+                <AppBarButton x:Name="MicButton" Icon="Microphone" Label="静音"
+                              ToolTipService.ToolTip="静音" Click="MicButton_Click" />
+                <AppBarButton x:Name="CameraButton" Icon="Video" Label="摄像头"
+                              ToolTipService.ToolTip="摄像头" Click="CameraButton_Click" />
+                <AppBarButton x:Name="ControlButton" Icon="TouchPointer" Label="远程控制"
+                              ToolTipService.ToolTip="远程控制" Click="ControlButton_Click" />
+                <AppBarButton Icon="Message" Label="聊天"
+                              ToolTipService.ToolTip="聊天" Click="ChatButton_Click" />
+                <AppBarButton Icon="FullScreen" Label="全屏"
+                              ToolTipService.ToolTip="全屏" Click="Fullscreen_Click" />
                 <AppBarSeparator />
-                <AppBarButton Icon="HangUp" Label="离开" Foreground="Red" Click="Leave_Click" />
+                <AppBarButton Icon="HangUp" Label="离开" Foreground="Red"
+                              ToolTipService.ToolTip="离开" Click="Leave_Click" />
             </CommandBar>
         </Grid>
 
         <!-- 右侧：成员 + 聊天 -->
         <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="12">
             <TextBlock Text="成员" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <ListView x:Name="ParticipantList" SelectionMode="None" MaxHeight="180" />
+            <ListView x:Name="ParticipantList" SelectionMode="None" MaxHeight="180">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="8" Padding="0,6">
+                            <TextBlock Text="{Binding Name}" />
+                            <TextBlock Text="{Binding RoleText}" FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
             <TextBlock Text="聊天" Style="{StaticResource SubtitleTextBlockStyle}" />
-            <ListView x:Name="ChatList" SelectionMode="None" Height="300" />
+            <ListView x:Name="ChatList" SelectionMode="None" Height="300">
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Padding="0,4" Spacing="2">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="{Binding Sender}" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{Binding TimeText}" FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Text}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBox x:Name="ChatInput" PlaceholderText="输入消息…" Width="220"
                          KeyDown="ChatInput_KeyDown" />
