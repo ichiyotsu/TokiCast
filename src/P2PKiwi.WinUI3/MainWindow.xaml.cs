@@ -26,7 +26,7 @@ public sealed partial class MainWindow : Window
 
         ContentFrame.Navigate(typeof(HomePage));
         NavView.SelectedItem = NavView.MenuItems[0];
-        NavView.Header = "主页";
+        NavView.Header = null; // 主页不显示大标题
     }
 
     /// <summary>统一导航入口：页面跳转时同步边栏选中项与标题，避免标题还停在上一页。</summary>
@@ -34,7 +34,7 @@ public sealed partial class MainWindow : Window
     {
         ContentFrame.Navigate(typeof(HomePage));
         NavView.SelectedItem = NavView.MenuItems[0];
-        NavView.Header = "主页";
+        NavView.Header = null; // 主页不显示大标题
     }
 
     public void NavigateToSession(string? link = null)
