@@ -9,10 +9,10 @@
         <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
     </Page.Resources>
     <Grid ColumnDefinitions="*,320" Padding="16">
-        <!-- 投屏画面：MediaPlayerElement 接 WebRTC 远端视频轨；本地分享时显示采集预览 -->
+        <!-- 远端画面：WriteableBitmap 显示解码帧 -->
         <Grid Grid.Column="0" CornerRadius="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
             <!-- 远端画面：WriteableBitmap 显示解码帧；没画面时显示占位文字 -->
-            <Grid x:Name="RemoteVideo">
+            <Grid x:Name="RemoteVideo" PointerMoved="RemoteVideo_PointerMoved">
                 <Image x:Name="RemoteVideoImage" Stretch="Uniform" />
                 <TextBlock x:Name="RemoteVideoPlaceholder" Text="等待对方加入…" HorizontalAlignment="Center" VerticalAlignment="Center"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -20,11 +20,6 @@
             <!-- 远端多光标层：每个参与者一个带名字的光标 -->
             <Canvas x:Name="CursorLayer" IsHitTestVisible="False" />
             <StackPanel VerticalAlignment="Top" HorizontalAlignment="Left" Margin="12" Spacing="6">
-                <!-- MLS 密钥未建立前不显示 E2EE 徽标 -->
-                <InfoBar x:Name="E2eeBadge" Severity="Success" IsOpen="False" Title="E2EE"
-                         Message="MLS + SFrame 已启用" />
-                <InfoBar x:Name="ControlRequestBar" Severity="Warning" IsOpen="False"
-                         Title="对方请求远程控制" Message="允许后对方可以移动你的鼠标、按键。" />
                 <!-- 加入方：把 answer 链接发回主持人（接通后自动隐藏） -->
                 <Border x:Name="AnswerPanel" Visibility="Collapsed" CornerRadius="8" Padding="12"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
@@ -35,6 +30,8 @@
                         <Button Content="复制 answer 链接" Click="CopyAnswer_Click" />
                     </StackPanel>
                 </Border>
+                <!-- 加入失败时出现：回主页重新发起或加入 -->
+                <Button x:Name="BackHomeButton" Content="回主页" Visibility="Collapsed" Click="BackHome_Click" />
             </StackPanel>
             <!-- 本地摄像头小窗：右上角画中画，默认关闭 -->
             <Border x:Name="CameraPiP" Visibility="Collapsed"
@@ -56,7 +53,7 @@
                 <AppBarButton x:Name="CameraButton" Icon="Video" Label="摄像头"
                               ToolTipService.ToolTip="摄像头" Click="CameraButton_Click" />
                 <AppBarButton x:Name="ControlButton" Icon="TouchPointer" Label="远程控制"
-                              ToolTipService.ToolTip="远程控制" Click="ControlButton_Click" />
+                              ToolTipService.ToolTip="远程控制" Visibility="Collapsed" />
                 <AppBarButton Icon="Message" Label="聊天"
                               ToolTipService.ToolTip="聊天" Click="ChatButton_Click" />
                 <AppBarButton x:Name="RecordButton" Icon="Camera" Label="录制"

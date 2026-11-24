@@ -1,7 +1,7 @@
+using System.ComponentModel;
 using System.IO;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -21,6 +21,9 @@ public sealed partial class SessionPage : Page
 
     private readonly CameraPreviewService _cameraPreview = new();
     private bool _cameraOn;
+    private DateTime _lastCursorSent = DateTime.MinValue;
+    // PropertyChanged 的 handler 存成字段，OnNavigatedFrom 才能取消订阅（匿名 lambda 取消不掉）。
+    private readonly PropertyChangedEventHandler _vmPropertyChangedHandler;
 
     // 远端视频：WriteableBitmap 只在尺寸变化时重建；帧先攒着，UI 线程一次只画最新的一帧。
     private WriteableBitmap? _remoteBitmap;
@@ -36,27 +39,69 @@ public sealed partial class SessionPage : Page
         ChatList.ItemsSource = _vm.Messages;
         _vm.RemoteCursorMoved += OnRemoteCursorMoved;
         _vm.RemoteVideoFrame += OnRemoteVideoFrame;
-        _vm.PropertyChanged += (_, e) =>
+        _vmPropertyChangedHandler = (_, e) =>
         {
             if (e.PropertyName == nameof(SessionViewModel.IsMicMuted)) UpdateMicButton();
             else if (e.PropertyName == nameof(SessionViewModel.IsRecording)) UpdateRecordButton();
             else if (e.PropertyName == nameof(SessionViewModel.AnswerLink)) UpdateAnswerPanel();
         };
-        // “允许”按钮在代码里创建一次再挂上去，不用 x:Bind 在加载时构造，
-        // 避免未处理异常导致整页加载闪退。
-        var allowButton = new Button { Content = "允许" };
-        allowButton.Click += (_, _) => ControlRequestBar.IsOpen = false;
-        ControlRequestBar.ActionButton = allowButton;
+        _vm.PropertyChanged += _vmPropertyChangedHandler;
     }
 
     protected override async void OnNavigatedTo(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        if (e.Parameter is string link) await _vm.JoinAsync(link);
-        else await _vm.LoadCurrentAsync();
+        try
+        {
+            if (e.Parameter is string link)
+            {
+                await _vm.JoinAsync(link);
+            }
+            else if (!await _vm.LoadCurrentAsync())
+            {
+                // 没有当前会话：给一句引导，而不是一张空白页。
+                _vm.AddSystemMessage("还没有会话：先去主页点「开始分享」发起投屏，或粘贴邀请链接加入。");
+            }
+        }
+        catch (Exception ex)
+        {
+            // 链接损坏、只有 8 位房间码等解析失败都在这里接住：聊天区写明原因，给回主页按钮，不弹全局报错框。
+            _vm.AddSystemMessage($"加入失败：{ex.Message}");
+            BackHomeButton.Visibility = Visibility.Visible;
+        }
         UpdateMicButton();
         UpdateRecordButton();
         UpdateAnswerPanel();
+    }
+
+    protected override void OnNavigatedFrom(Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        // 离开页面时取消订阅：VM 事件与共享传输的订阅都要断开，否则旧页面被事件链拽住泄漏。
+        _vm.RemoteCursorMoved -= OnRemoteCursorMoved;
+        _vm.RemoteVideoFrame -= OnRemoteVideoFrame;
+        _vm.PropertyChanged -= _vmPropertyChangedHandler;
+        _vm.UnwireRtc();
+    }
+
+    /// <summary>本地光标发给对方（相对坐标 0..1），50ms 节流；未接通时 VM 里不发。</summary>
+    private void RemoteVideo_PointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        var now = DateTime.UtcNow;
+        if ((now - _lastCursorSent).TotalMilliseconds < 50) return;
+        _lastCursorSent = now;
+        var w = RemoteVideo.ActualWidth;
+        var h = RemoteVideo.ActualHeight;
+        if (w <= 0 || h <= 0) return;
+        var point = e.GetCurrentPoint(RemoteVideo);
+        var x = Math.Clamp(point.Position.X / w, 0, 1);
+        var y = Math.Clamp(point.Position.Y / h, 0, 1);
+        _ = _vm.SendCursorAsync(x, y);
+    }
+
+    private void BackHome_Click(object sender, RoutedEventArgs e)
+    {
+        App.MainWindow?.NavigateToHome();
     }
 
     private void OnRemoteCursorMoved(string peerId, string name, double x, double y)
@@ -159,15 +204,31 @@ public sealed partial class SessionPage : Page
         Clipboard.SetContent(package);
     }
 
-    private void MicButton_Click(object sender, RoutedEventArgs e) => _ = _vm.ToggleMicAsync();
-    private void RecordButton_Click(object sender, RoutedEventArgs e) => _ = _vm.ToggleRecordingAsync();
-    private void ControlButton_Click(object sender, RoutedEventArgs e) => _vm.ToggleRemoteControl();
+    private async void MicButton_Click(object sender, RoutedEventArgs e)
+    {
+        try { await _vm.ToggleMicAsync(); }
+        catch (Exception ex) { _vm.AddSystemMessage($"静音切换失败：{ex.Message}"); }
+    }
+
+    private async void RecordButton_Click(object sender, RoutedEventArgs e)
+    {
+        try { await _vm.ToggleRecordingAsync(); }
+        catch (Exception ex) { _vm.AddSystemMessage($"录制失败：{ex.Message}"); }
+    }
+
     private void ChatButton_Click(object sender, RoutedEventArgs e) => ChatInput.Focus(FocusState.Programmatic);
     private void Fullscreen_Click(object sender, RoutedEventArgs e) => App.MainWindow?.ToggleFullscreen();
     private async void Leave_Click(object sender, RoutedEventArgs e)
     {
-        await _cameraPreview.StopAsync();
-        _ = _vm.LeaveAsync();
+        try
+        {
+            await _cameraPreview.StopAsync();
+            await _vm.LeaveAsync();
+        }
+        catch (Exception ex)
+        {
+            _vm.AddSystemMessage($"离开会话失败：{ex.Message}");
+        }
         App.MainWindow?.NavigateToHome();
     }
 

@@ -38,6 +38,7 @@ public sealed partial class SettingsPage : Page
         E2eeBox.IsChecked = s.E2eeEnabled;
         SFrameBox.IsChecked = s.SFrameEnabled;
         StunTurnBox.Text = s.StunTurnJson;
+        UpdateStunTurnHint();
         UpdateColorPreview(ForegroundBox.Text, ForegroundPreview);
         UpdateColorPreview(BackgroundBox.Text, BackgroundPreview);
     }
@@ -86,6 +87,7 @@ public sealed partial class SettingsPage : Page
         s.SFrameEnabled = SFrameBox.IsChecked == true;
         s.StunTurnJson = StunTurnBox.Text.Trim();
         AppSettings.Save();
+        UpdateStunTurnHint();
         BasicSavedHint.Visibility = Visibility.Visible;
         MediaSavedHint.Visibility = Visibility.Visible;
         AdvancedSavedHint.Visibility = Visibility.Visible;
@@ -96,6 +98,14 @@ public sealed partial class SettingsPage : Page
 
     private void BackgroundBox_TextChanged(object sender, TextChangedEventArgs e)
         => UpdateColorPreview(BackgroundBox.Text, BackgroundPreview);
+
+    /// <summary>STUN/TURN 输入裸 URL 或 JSON 都解析不出服务器时显示提示，不要静默回退默认 STUN。</summary>
+    private void UpdateStunTurnHint()
+    {
+        StunTurnHint.Visibility = SIPSorceryWebRtcService.IceServersNeedFallback(StunTurnBox.Text)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
 
     private static void UpdateColorPreview(string hex, Border preview)
     {

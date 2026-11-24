@@ -10,11 +10,10 @@
             <!-- 发起 -->
             <controls:Expander Header="发起投屏" IsExpanded="True" HorizontalAlignment="Stretch">
                 <StackPanel Spacing="12" Margin="0,12,0,0">
-                    <ComboBox x:Name="SourcePicker" Header="分享内容" HorizontalAlignment="Stretch"
-                              PlaceholderText="选择显示器或窗口…" />
+                    <!-- 要分享的显示器/窗口在点「开始分享」后由系统选择器选，不在这里选。 -->
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <CheckBox x:Name="ShareAudioCheck" Content="同时分享系统声音" IsChecked="True" />
-                        <CheckBox x:Name="AllowControlCheck" Content="允许对方远程控制" IsChecked="False" />
+                        <CheckBox x:Name="ShareAudioCheck" Content="同时分享系统声音（未实现）" IsChecked="True" IsEnabled="False" />
+                        <CheckBox x:Name="AllowControlCheck" Content="允许对方远程控制（未实现）" IsChecked="False" IsEnabled="False" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="开始分享" Style="{StaticResource AccentButtonStyle}"
@@ -29,17 +28,15 @@
                     <TextBlock Text="开始分享后把邀请链接发给对方；对方加入后会把 answer 链接发回，粘贴到这里点「允许加入」即可接通（无中心服务器，只能这样两步交换）。"
                                TextWrapping="Wrap" FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <InfoBar x:Name="E2eeBar" Severity="Success" IsOpen="False"
-                             Title="端到端加密已启用" Message="MLS 密钥已建立，媒体帧经 SFrame 加密。" />
                 </StackPanel>
             </controls:Expander>
 
             <!-- 加入 -->
             <controls:Expander Header="加入会话" HorizontalAlignment="Stretch">
                 <StackPanel Spacing="12" Margin="0,12,0,0">
-                    <TextBox x:Name="JoinLinkBox" Header="邀请链接或房间码"
-                             PlaceholderText="https://p2p.kiwi/session/… 或 8 位房间码" />
-                    <TextBlock Text="房间码就是邀请链接里 session/ 后面的 8 位字符，贴完整链接或只贴码都可以。"
+                    <TextBox x:Name="JoinLinkBox" Header="邀请链接"
+                             PlaceholderText="https://p2p.kiwi/session/…" />
+                    <TextBlock Text="请贴主持人发的完整邀请链接（房间码是链接里 session/ 后面的 8 位字符）。"
                                TextWrapping="Wrap" FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Button Content="加入" Click="Join_Click" />

@@ -5,7 +5,7 @@
     xmlns:controls="using:Microsoft.UI.Xaml.Controls"
     FontWeight="Bold">
     <Grid Padding="24">
-        <controls:TabView x:Name="SettingsTabs" IsAddTabButtonVisible="False">
+        <controls:TabView IsAddTabButtonVisible="False">
             <!-- 基本：对照原版设置页“基本” -->
             <controls:TabViewItem Header="基本" IsClosable="False">
                 <ScrollViewer Padding="16">
@@ -15,15 +15,18 @@
                                  TextChanged="ForegroundBox_TextChanged" />
                         <Border x:Name="ForegroundPreview" Width="48" Height="24" CornerRadius="4"
                                 HorizontalAlignment="Left" Background="White" />
-                        <TextBox x:Name="BackgroundBox" Header="背景色" Text="#0099ff"
-                                 TextChanged="BackgroundBox_TextChanged" />
+                        <TextBox x:Name="BackgroundBox" Header="背景色（未实现）" Text="#0099ff"
+                                 TextChanged="BackgroundBox_TextChanged" IsEnabled="False" />
                         <Border x:Name="BackgroundPreview" Width="48" Height="24" CornerRadius="4"
                                 HorizontalAlignment="Left" Background="#0099ff" />
-                        <ComboBox x:Name="LanguageBox" Header="语言" SelectedIndex="0" HorizontalAlignment="Stretch">
+                        <TextBlock Text="背景色暂未实现，改了不生效。"
+                                   TextWrapping="Wrap" FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ComboBox x:Name="LanguageBox" Header="语言（未实现）" SelectedIndex="0" HorizontalAlignment="Stretch" IsEnabled="False">
                             <x:String>zh</x:String>
                             <x:String>en</x:String>
                         </ComboBox>
-                        <TextBlock Text="选择您的首选语言（更改语言后，您需要重新启动应用程序）"
+                        <TextBlock Text="语言切换暂未实现，全站目前只有中文。"
                                    TextWrapping="Wrap" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <Button Content="保存" Style="{StaticResource AccentButtonStyle}" Click="Save_Click" />
@@ -63,14 +66,17 @@
             <controls:TabViewItem Header="高级" IsClosable="False">
                 <ScrollViewer Padding="16">
                     <StackPanel Spacing="12" Width="600" HorizontalAlignment="Left">
-                        <CheckBox x:Name="BonjourBox" Content="启用 Bonjour（可选联系人服务器）" />
-                        <TextBox x:Name="BonjourUrlBox" Header="Bonjour 服务器 URL"
-                                 Text="https://bonjour.p2p.kiwi" />
-                        <CheckBox x:Name="DebugLogBox" Content="启用调试日志" />
+                        <CheckBox x:Name="BonjourBox" Content="启用 Bonjour（可选联系人服务器，未实现）" IsEnabled="False" />
+                        <TextBox x:Name="BonjourUrlBox" Header="Bonjour 服务器 URL（未实现）"
+                                 Text="https://bonjour.p2p.kiwi" IsEnabled="False" />
+                        <CheckBox x:Name="DebugLogBox" Content="启用调试日志（未实现）" IsEnabled="False" />
                         <CheckBox x:Name="E2eeBox" Content="端到端加密" IsChecked="True" />
                         <CheckBox x:Name="SFrameBox" Content="加密媒体（SFrame）" IsChecked="True" />
-                        <TextBox x:Name="StunTurnBox" Header="STUN/TURN 服务器对象（用新行分隔）"
+                        <TextBox x:Name="StunTurnBox" Header="STUN/TURN 服务器（每行一个地址或 JSON 对象）"
                                  TextWrapping="Wrap" AcceptsReturn="True" MinHeight="80" />
+                        <TextBlock x:Name="StunTurnHint" Visibility="Collapsed"
+                                   Text="解析失败，已用默认 STUN 服务器（stun:stun.l.google.com:19302）。请检查格式：每行一个 stun:/turn:/turns: 地址，或一个 JSON 对象。"
+                                   TextWrapping="Wrap" FontSize="12" Foreground="OrangeRed" />
                         <TextBlock Text="STUN / TURN 只交换 ICE 连通信息，不转发聊天与媒体密钥。"
                                    TextWrapping="Wrap" FontSize="12"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

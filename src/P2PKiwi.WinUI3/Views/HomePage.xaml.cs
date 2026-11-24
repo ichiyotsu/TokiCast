@@ -11,17 +11,20 @@ public sealed partial class HomePage : Page
 {
     private readonly HomeViewModel _vm = new(SessionManager.Shared);
     private string? _lastLink;
+    private bool _isStarting;
 
     public HomePage()
     {
         InitializeComponent();
         RecentList.ItemsSource = _vm.RecentSessions;
-        _ = _vm.LoadSourcesAsync(SourcePicker);
         _ = _vm.LoadRecentAsync();
     }
 
     private async void StartSharing_Click(object sender, RoutedEventArgs e)
     {
+        // 防重入：等 ICE 收集（1~5 秒）期间再点会多建一个 RTC 连接，先建的那个没人关。
+        if (_isStarting) return;
+        _isStarting = true;
         try
         {
             if (App.MainWindow == null)
@@ -33,7 +36,6 @@ public sealed partial class HomePage : Page
             var item = await ScreenCaptureVideoSource.PickCaptureItemAsync(WindowNative.GetWindowHandle(App.MainWindow));
             if (item is null) return;
             var link = await _vm.StartSharingAsync(
-                SourcePicker.SelectedItem as string,
                 ShareAudioCheck.IsChecked == true,
                 AllowControlCheck.IsChecked == true,
                 item);
@@ -42,13 +44,16 @@ public sealed partial class HomePage : Page
             _lastLink = link;
             CopyToClipboard(link);
             CopyLinkButton.IsEnabled = true;
-            // E2EE 徽标等 MLS 密钥真正建立后再显示，现在不打开。
             // 不立刻跳会话页：等对方发回 answer 链接，粘贴到下面的 answer 框并点「允许加入」再进会话页。
         }
         catch (Exception ex)
         {
             // 开始失败改为弹窗提示，不让未处理异常直接闪退。
             await ShowErrorAsync("开始分享失败", ex.Message);
+        }
+        finally
+        {
+            _isStarting = false;
         }
     }
 
