@@ -13,6 +13,7 @@ using SIPSorceryMedia.FFmpeg;
 using SIPSorceryMedia.Windows;
 using Windows.Graphics.Capture;
 using Windows.Graphics.DirectX;
+using WinRT.Interop;
 
 namespace P2PKiwi.WinUI3.Services;
 
@@ -780,15 +781,10 @@ public sealed class ScreenCaptureVideoSource : IVideoSource
     public static async Task<GraphicsCaptureItem?> PickCaptureItemAsync(IntPtr hwnd)
     {
         var picker = new GraphicsCapturePicker();
-        // WinRT 对象转 COM 接口要先经 object（编译器不认 WinRT 类到自定义 COM 接口的直接转换）。
-        ((IInitializeWithWindow)(object)picker).Initialize(hwnd);
+        // WinUI 3 桌面应用给 WinRT 选择器绑 HWND 用 WinRT.Interop 的 helper；
+        // 自己 ComImport 一个 IInitializeWithWindow 再强转，CsWinRT 投影的对象转不过去，
+        // 真机上报 Invalid cast / 不支持此接口（E_NOINTERFACE）。
+        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
         return await picker.PickSingleItemAsync();
     }
-}
-
-/// <summary>IInitializeWithWindow：WinRT 选择器在桌面应用里必须先绑 HWND；不用 WinRT.Interop 依赖也行。</summary>
-[ComImport, Guid("3E68D4BD-7135-4D10-8018-9FB6D9F33FA1"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-internal interface IInitializeWithWindow
-{
-    void Initialize(IntPtr hwnd);
 }
