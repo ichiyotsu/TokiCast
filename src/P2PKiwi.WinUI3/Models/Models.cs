@@ -2,7 +2,7 @@ using Windows.Graphics.Capture;
 
 namespace P2PKiwi.WinUI3.Models;
 
-public sealed record Participant(string Id, string Name, bool IsHost, bool CanControl) : System.ComponentModel.INotifyPropertyChanged
+public sealed record Participant(string Id, string Name, bool IsHost) : System.ComponentModel.INotifyPropertyChanged
 {
     public string RoleText => IsHost ? "主持人" : "成员";
 
@@ -30,7 +30,6 @@ public sealed record RecentSession(string Title, string Subtitle, string InviteL
 
 public sealed record SessionOptions
 {
-    public required string SourceName { get; init; }
     public bool ShareSystemAudio { get; init; } = true;
     public bool AllowRemoteControl { get; init; }
     /// <summary>用户在系统选择器里挑的显示器/窗口（取消则为 null，开始分享时不建会话）。</summary>
