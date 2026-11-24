@@ -20,7 +20,7 @@
   </Resources>
   <Applications>
     <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
-      <uap:VisualElements DisplayName="TokiCast" Description="P2P 投屏与远程控制，无账号，端到端加密" BackgroundColor="transparent"
+      <uap:VisualElements DisplayName="TokiCast" Description="P2P 投屏与远程控制，无账号，点对点直连" BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png" />
     </Application>
   </Applications>
