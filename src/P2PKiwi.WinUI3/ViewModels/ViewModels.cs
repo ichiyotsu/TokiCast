@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml.Controls;
 using P2PKiwi.WinUI3.Models;
 using P2PKiwi.WinUI3.Services;
 using Windows.Graphics.Capture;
@@ -14,27 +13,24 @@ public sealed class HomeViewModel : ViewModelBase
 
     public HomeViewModel(ISessionManager sessions) => _sessions = sessions;
 
-    public async Task LoadSourcesAsync(ComboBox picker)
-    {
-        // 这里只放占位选项；真正选显示器/窗口用开始分享时的系统选择器（GraphicsCapturePicker）。
-        await Task.CompletedTask;
-        picker.ItemsSource = new[] { "主显示器 (1920×1080)", "副显示器", "某个窗口…" };
-        picker.SelectedIndex = 0;
-    }
-
-    public async Task<string?> StartSharingAsync(string? source, bool shareAudio, bool allowControl, GraphicsCaptureItem? captureItem = null)
+    public async Task<string?> StartSharingAsync(bool shareAudio, bool allowControl, GraphicsCaptureItem? captureItem = null)
     {
         var session = await _sessions.CreateSessionAsync(new SessionOptions
         {
-            SourceName = source ?? "主显示器",
             ShareSystemAudio = shareAudio,
             AllowRemoteControl = allowControl,
             CaptureItem = captureItem,
         });
-        RecentSessions.Insert(0, new RecentSession(session.InviteLink, DateTime.Now.ToString("MM-dd HH:mm"), session.InviteLink));
-        _ = RecentSessionStore.SaveAsync(new RecentSessionItem(session.RoomId, session.InviteLink, source ?? "主显示器", DateTime.Now.ToString("yyyy-MM-dd HH:mm")));
+        // 来源名取系统选择器里挑的显示器/窗口名（最近会话标题用）。
+        var sourceName = captureItem?.DisplayName ?? "屏幕分享";
+        RecentSessions.Insert(0, new RecentSession(RecentTitle(session.RoomId, sourceName), DateTime.Now.ToString("yyyy-MM-dd HH:mm"), session.InviteLink));
+        _ = RecentSessionStore.SaveAsync(new RecentSessionItem(session.RoomId, session.InviteLink, sourceName, DateTime.Now.ToString("yyyy-MM-dd HH:mm")));
         return session.InviteLink;
     }
+
+    /// <summary>最近会话标题：房间码 + 来源（不再显示 650 字符的完整邀请链接）。</summary>
+    public static string RecentTitle(string roomId, string? sourceName)
+        => string.IsNullOrWhiteSpace(sourceName) ? $"房间 {roomId}" : $"房间 {roomId} · {sourceName.Trim()}";
 
     /// <summary>主持方：粘贴加入方发回的 answer 链接，完成连接。</summary>
     public async Task CompleteSharingAsync(string answerLink)
@@ -48,7 +44,7 @@ public sealed class HomeViewModel : ViewModelBase
         var stored = await RecentSessionStore.LoadAsync();
         RecentSessions.Clear();
         foreach (var item in stored)
-            RecentSessions.Add(new RecentSession(item.InviteLink, item.CreatedAt, item.InviteLink));
+            RecentSessions.Add(new RecentSession(RecentTitle(item.RoomId, item.SourceName), item.CreatedAt, item.InviteLink));
     }
 }
 
@@ -66,6 +62,15 @@ public sealed class SessionViewModel : ViewModelBase
     private DateTime _localSpeakingUntil = DateTime.MinValue;
     private DateTime _remoteSpeakingUntil = DateTime.MinValue;
     private const double SpeakingThreshold = 0.02; // RMS 阈值 + 400ms 保持，避免指示灯闪烁
+    // WireRtc 的订阅 handler 存成字段，UnwireRtc 才能逐个取消（匿名 lambda 取消不掉）。
+    private Action<ChatMessage>? _chatHandler;
+    private Action<string, string, double, double>? _cursorHandler;
+    private Action<byte[], int, int>? _videoFrameHandler;
+    private Action<double>? _localSpeakingHandler;
+    private Action<double>? _remoteSpeakingHandler;
+    private Action<PeerConnectionState>? _connectionHandler;
+    private Action<string>? _errorHandler;
+    private bool _autoRecordStarted;
 
     public ObservableCollection<Participant> Participants { get; } = new();
     public ObservableCollection<ChatMessage> Messages { get; } = new();
@@ -104,11 +109,14 @@ public sealed class SessionViewModel : ViewModelBase
         WireRtc();
     }
 
-    /// <summary>主持人从主页进来时（无链接参数）：显示已创建的当前房间，而不是一张空表。</summary>
-    public Task LoadCurrentAsync()
+    /// <summary>往聊天区追加一条系统消息（加入失败、操作失败等提示用）。</summary>
+    public void AddSystemMessage(string text) => Messages.Add(new ChatMessage("系统", text, DateTime.Now));
+
+    /// <summary>主持人从主页进来时（无链接参数）：显示已创建的当前房间，而不是一张空表；无当前会话时返回 false。</summary>
+    public Task<bool> LoadCurrentAsync()
     {
         var session = _sessions.Current;
-        if (session is null) return Task.CompletedTask;
+        if (session is null) return Task.FromResult(false);
         Participants.Clear();
         foreach (var p in session.Participants) Participants.Add(p);
         if (session.IsHost)
@@ -122,7 +130,7 @@ public sealed class SessionViewModel : ViewModelBase
             AnswerLink = session.AnswerLink;
         }
         WireRtc();
-        return Task.CompletedTask;
+        return Task.FromResult(true);
     }
 
     /// <summary>把当前会话的 WebRTC 传输接到 ViewModel（只接一次；传输由 SessionManager 持有）。</summary>
@@ -133,12 +141,12 @@ public sealed class SessionViewModel : ViewModelBase
         _rtc = rtc;
         _rtcWired = true;
         IsMicMuted = rtc.IsMicMuted;
-        rtc.ChatMessageReceived += msg => RunOnUi(() => Messages.Add(msg));
-        rtc.RemoteCursorReceived += (peerId, name, x, y) => OnRemoteCursor(peerId, name, x, y);
-        rtc.RemoteVideoFrameReceived += (bgra, w, h) => RemoteVideoFrame?.Invoke(bgra, w, h);
-        rtc.LocalSpeakingLevelChanged += level => UpdateSpeaking(isLocal: true, level);
-        rtc.RemoteSpeakingLevelChanged += level => UpdateSpeaking(isLocal: false, level);
-        rtc.ConnectionStateChanged += state =>
+        _chatHandler = msg => RunOnUi(() => Messages.Add(msg));
+        _cursorHandler = (peerId, name, x, y) => OnRemoteCursor(peerId, name, x, y);
+        _videoFrameHandler = (bgra, w, h) => RemoteVideoFrame?.Invoke(bgra, w, h);
+        _localSpeakingHandler = level => UpdateSpeaking(isLocal: true, level);
+        _remoteSpeakingHandler = level => UpdateSpeaking(isLocal: false, level);
+        _connectionHandler = state =>
         {
             RunOnUi(() =>
             {
@@ -147,7 +155,8 @@ public sealed class SessionViewModel : ViewModelBase
                     AnswerLink = null;
                     Messages.Add(new ChatMessage("系统", "点对点已接通。", DateTime.Now));
                     if (!Participants.Any(p => p.Id != "me"))
-                        Participants.Add(new Participant("peer", "对方", IsHost: false, CanControl: false));
+                        Participants.Add(new Participant("peer", "对方", IsHost: false));
+                    _ = AutoStartRecordingIfEnabledAsync();
                 }
                 else if (state == PeerConnectionState.Failed)
                 {
@@ -155,7 +164,54 @@ public sealed class SessionViewModel : ViewModelBase
                 }
             });
         };
-        rtc.ErrorOccurred += msg => RunOnUi(() => Messages.Add(new ChatMessage("系统", msg, DateTime.Now)));
+        _errorHandler = msg => RunOnUi(() => Messages.Add(new ChatMessage("系统", msg, DateTime.Now)));
+        rtc.ChatMessageReceived += _chatHandler;
+        rtc.RemoteCursorReceived += _cursorHandler;
+        rtc.RemoteVideoFrameReceived += _videoFrameHandler;
+        rtc.LocalSpeakingLevelChanged += _localSpeakingHandler;
+        rtc.RemoteSpeakingLevelChanged += _remoteSpeakingHandler;
+        rtc.ConnectionStateChanged += _connectionHandler;
+        rtc.ErrorOccurred += _errorHandler;
+    }
+
+    /// <summary>离开会话页时取消对共享传输的订阅，避免旧页面/旧 VM 被传输事件拽住泄漏；下次进页会重新 WireRtc。</summary>
+    public void UnwireRtc()
+    {
+        var rtc = _rtc;
+        if (rtc == null || !_rtcWired) return;
+        _rtcWired = false;
+        _rtc = null;
+        if (_chatHandler != null) rtc.ChatMessageReceived -= _chatHandler;
+        if (_cursorHandler != null) rtc.RemoteCursorReceived -= _cursorHandler;
+        if (_videoFrameHandler != null) rtc.RemoteVideoFrameReceived -= _videoFrameHandler;
+        if (_localSpeakingHandler != null) rtc.LocalSpeakingLevelChanged -= _localSpeakingHandler;
+        if (_remoteSpeakingHandler != null) rtc.RemoteSpeakingLevelChanged -= _remoteSpeakingHandler;
+        if (_connectionHandler != null) rtc.ConnectionStateChanged -= _connectionHandler;
+        if (_errorHandler != null) rtc.ErrorOccurred -= _errorHandler;
+    }
+
+    /// <summary>设置里开了“录制别人共享给你的屏幕”时，加入方接通后自动开始录制对方屏幕（主持方收不到远端画面，不录）。</summary>
+    private async Task AutoStartRecordingIfEnabledAsync()
+    {
+        if (_autoRecordStarted) return;
+        _autoRecordStarted = true;
+        try
+        {
+            if (_sessions.Current?.IsHost == false && AppSettings.Current.RecordRemoteScreen && !IsRecording)
+                await ToggleRecordingAsync();
+        }
+        catch (Exception ex)
+        {
+            Messages.Add(new ChatMessage("系统", $"自动录制启动失败：{ex.Message}", DateTime.Now));
+        }
+    }
+
+    /// <summary>发本地光标位置给对方（相对坐标 0..1）；未接通时不发。</summary>
+    public Task SendCursorAsync(double x, double y)
+    {
+        var rtc = _rtc;
+        if (rtc == null || !rtc.IsConnected) return Task.CompletedTask;
+        return rtc.SendCursorAsync(x, y);
     }
 
     private void UpdateSpeaking(bool isLocal, double level)
@@ -197,8 +253,6 @@ public sealed class SessionViewModel : ViewModelBase
         await _rtc.SetMicMutedAsync(!IsMicMuted);
         IsMicMuted = _rtc.IsMicMuted;
     }
-
-    public void ToggleRemoteControl() { /* TODO：向对方发控制请求，等对方点允许 */ }
 
     /// <summary>录制对方屏幕：开/关，文件落到 视频\TokiCast\房间码-时间.h264（VLC 可播）。</summary>
     public async Task ToggleRecordingAsync()
