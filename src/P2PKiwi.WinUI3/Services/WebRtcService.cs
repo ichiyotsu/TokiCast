@@ -95,7 +95,7 @@ public static class SdpLink
 /// 屏幕源见 ScreenCaptureVideoSource）；聊天/光标走 RTCDataChannel；录制为编码帧直写 .h264。
 /// 注意：SIPSorcery 没有 MLS/SFrame——媒体只有 DTLS-SRTP 传输加密，E2EE 开关只存值、不接线、不亮徽标。
 /// </summary>
-public sealed class SIPSorceryWebRtcService : IWebRtcService, IDisposable
+public sealed class SIPSorceryWebRtcService : IWebRtcService
 {
     private static readonly AudioFormat OpusFormat = new(AudioCodecsEnum.OPUS, 111, 48000, 2, "minptime=10;useinbandfec=1");
     private static readonly VideoFormat H264Format = new(VideoCodecsEnum.H264, 100, 90000, "packetization-mode=1;profile-level-id=42e01f;level-asymmetry-allowed=1");
@@ -128,9 +128,9 @@ public sealed class SIPSorceryWebRtcService : IWebRtcService, IDisposable
     public event Action<PeerConnectionState>? ConnectionStateChanged;
     public event Action<string>? ErrorOccurred;
 
-    public SIPSorceryWebRtcService(IReadOnlyList<string>? iceServerUrls = null)
+    public SIPSorceryWebRtcService()
     {
-        _iceServers = IceServersFromSettings(iceServerUrls);
+        _iceServers = IceServersFromSettings();
     }
 
     /// <summary>主持方：建连接 + offer，返回含 offer 的邀请链接（已自动等 ICE 收集完成，非 trickle）。</summary>
@@ -157,8 +157,8 @@ public sealed class SIPSorceryWebRtcService : IWebRtcService, IDisposable
         return SdpLink.BuildOfferLink(roomId, sdp);
     }
 
-    /// <summary>加入方：用邀请链接里的 offer 建 answer，返回含 answer 的回传链接（发回主持人）。</summary>
-    public async Task<string> CreateAnswerAsync(string offerLink)
+    /// <summary>加入方：用邀请链接里的 offer 建 answer，返回（房间码，含 answer 的回传链接，发回主持人）。</summary>
+    public async Task<(string RoomId, string AnswerLink)> CreateAnswerAsync(string offerLink)
     {
         var (roomId, kind, sdp) = SdpLink.Parse(offerLink);
         if (kind != "o")
@@ -172,7 +172,7 @@ public sealed class SIPSorceryWebRtcService : IWebRtcService, IDisposable
         await _pc.setLocalDescription(answer);
         await WaitForIceGatheringAsync();
         var answerSdp = _pc.localDescription.sdp.ToString();
-        return SdpLink.BuildAnswerLink(roomId, answerSdp);
+        return (roomId, SdpLink.BuildAnswerLink(roomId, answerSdp));
     }
 
     /// <summary>主持方：粘贴加入方发回的 answer 链接，完成连接。</summary>
@@ -275,17 +275,11 @@ public sealed class SIPSorceryWebRtcService : IWebRtcService, IDisposable
         _pc = null;
         _chatChannel = null;
         _cursorChannel = null;
+        // 音频端点若实现 IDisposable，句柄随连接一起释放（WindowsAudioEndPoint 8.0.14 未在文档里写明是否需要，as 转换失败时为 null，不影响）。
+        try { (_audio as IDisposable)?.Dispose(); } catch { }
+        _audio = null;
         try { _audioEncoder.Dispose(); } catch { }
         IsConnected = false;
-    }
-
-    public void Dispose()
-    {
-        // 同步兜底：CloseAsync 已是幂等的，Dispose 只做不会死锁的同步清理。
-        try { _pc?.close(); } catch { }
-        try { _recordingStream?.Dispose(); } catch { }
-        try { _audioEncoder.Dispose(); } catch { }
-        _closed = true;
     }
 
     // ---- 连接搭建 ----
@@ -353,7 +347,8 @@ public sealed class SIPSorceryWebRtcService : IWebRtcService, IDisposable
     private void SetupAudio()
     {
         var settings = AppSettings.Current;
-        var outIndex = FindOutputDeviceIndex(settings.MicrophoneDevice); // 扬声器与麦克风共用设备名设置，先按麦克风名找输出
+        // 扬声器用系统默认（-1）：设置页只存了一个麦克风名，不按它找输出设备。
+        var outIndex = -1;
         var inIndex = FindInputDeviceIndex(settings.MicrophoneDevice);
         _audio = new WindowsAudioEndPoint(_audioEncoder, outIndex, inIndex, disableSource: false, disableSink: false);
         _audio.OnAudioSourceError += msg => ErrorOccurred?.Invoke($"麦克风：{msg}");
@@ -448,7 +443,10 @@ public sealed class SIPSorceryWebRtcService : IWebRtcService, IDisposable
     private static FFmpegVideoEncoder CreateVideoEncoder()
     {
         EnsureFFmpegRootPath();
-        return new FFmpegVideoEncoder(new Dictionary<string, string>(), AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+        var encoder = new FFmpegVideoEncoder(new Dictionary<string, string>(), AVHWDeviceType.AV_HWDEVICE_TYPE_NONE);
+        // 码率按设置走（Mbps → bps；SetBitrate 只存字段并复位编码器，真正起效在首次编码初始化时）。
+        encoder.SetBitrate(Math.Clamp(AppSettings.Current.BitrateMbps, 1, 50) * 1_000_000, null, null, null);
+        return encoder;
     }
 
     /// <summary>FFmpeg 7.x 共享 DLL 随安装包放在 exe 旁边时，显式指给 FFmpeg.AutoGen；否则走默认搜索。</summary>
@@ -582,49 +580,59 @@ public sealed class SIPSorceryWebRtcService : IWebRtcService, IDisposable
         return -1;
     }
 
-    private static int FindOutputDeviceIndex(string name)
+    /// <summary>设置里的 STUN/TURN 转 ICE 服务器。先认裸 URL（stun:/turn:/turns: 开头），再试 JSON；都失败回退默认 STUN。</summary>
+    private static List<RTCIceServer> IceServersFromSettings()
     {
-        // 设置页只存了一个麦克风名；扬声器先用系统默认（-1），设备名匹配只用于麦克风。
-        return -1;
-    }
-
-    /// <summary>设置里的 STUN/TURN JSON（单对象或每行一个对象）转 ICE 服务器；解析失败时回退默认 STUN。</summary>
-    private static List<RTCIceServer> IceServersFromSettings(IReadOnlyList<string>? extraUrls)
-    {
-        var servers = new List<RTCIceServer>();
-        if (extraUrls != null)
-            foreach (var url in extraUrls)
-                if (!string.IsNullOrWhiteSpace(url)) servers.Add(new RTCIceServer { urls = url.Trim() });
-        var json = AppSettings.Current.StunTurnJson;
-        if (!string.IsNullOrWhiteSpace(json))
-        {
-            var lines = json.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var line in lines)
-            {
-                try
-                {
-                    using var doc = JsonDocument.Parse(line.Trim());
-                    AddIceServers(doc.RootElement, servers);
-                }
-                catch
-                {
-                    // 单行解析失败：整段可能是 JSON 数组，下一行再试；都不行就回退默认。
-                }
-            }
-            if (servers.Count == 0)
-            {
-                try
-                {
-                    using var doc = JsonDocument.Parse(json);
-                    AddIceServers(doc.RootElement, servers);
-                }
-                catch { }
-            }
-        }
+        var servers = ParseIceServers(AppSettings.Current.StunTurnJson);
         if (servers.Count == 0)
             servers.Add(new RTCIceServer { urls = "stun:stun.l.google.com:19302" });
         return servers;
     }
+
+    /// <summary>解析 STUN/TURN 配置：裸 URL 每行一个，或 JSON 对象/数组；解析不出任何服务器时返回空列表。</summary>
+    public static List<RTCIceServer> ParseIceServers(string? json)
+    {
+        var servers = new List<RTCIceServer>();
+        if (string.IsNullOrWhiteSpace(json)) return servers;
+        var lines = json.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var trimmed = line.Trim();
+            if (IsBareIceUrl(trimmed))
+            {
+                servers.Add(new RTCIceServer { urls = trimmed });
+                continue;
+            }
+            try
+            {
+                using var doc = JsonDocument.Parse(trimmed);
+                AddIceServers(doc.RootElement, servers);
+            }
+            catch
+            {
+                // 单行不是 JSON：整段可能是多行 JSON 对象/数组，下面整段再试一次。
+            }
+        }
+        if (servers.Count == 0 && !IsBareIceUrl(json.Trim()))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                AddIceServers(doc.RootElement, servers);
+            }
+            catch { }
+        }
+        return servers;
+    }
+
+    private static bool IsBareIceUrl(string text)
+        => text.StartsWith("stun:", StringComparison.OrdinalIgnoreCase)
+            || text.StartsWith("turn:", StringComparison.OrdinalIgnoreCase)
+            || text.StartsWith("turns:", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>设置页用：输入的 STUN/TURN 解析不出任何服务器时返回 true（会用默认 STUN），供设置页提示而非静默回退。</summary>
+    public static bool IceServersNeedFallback(string? json)
+        => !string.IsNullOrWhiteSpace(json) && ParseIceServers(json).Count == 0;
 
     private static void AddIceServers(JsonElement element, List<RTCIceServer> servers)
     {
@@ -662,7 +670,8 @@ public sealed class SIPSorceryWebRtcService : IWebRtcService, IDisposable
 /// 屏幕采集源：Windows.Graphics.Capture 包装成 IVideoSource。
 /// D3D 设备用 Win2D 的 CanvasDevice（共享设备，WinUI 3 采集的标准做法，不用自己 P/Invoke 建 D3D 设备——
 /// WinRT 里没有公开的 Direct3D11Helper.CreateDirect3DDevice，不要自己造）。
-/// 帧经 CanvasBitmap 拷到 CPU（BGRA8 紧排）后由 FFmpeg 编 H.264；节流约 15fps。
+/// 帧经 CanvasBitmap 拷到 CPU（BGRA8 紧排）后由 FFmpeg 编 H.264；节流间隔与编码分辨率按设置走
+/// （设置 → 帧率、分辨率；改完设置下次开始分享时生效）。
 /// </summary>
 public sealed class ScreenCaptureVideoSource : IVideoSource
 {
@@ -674,7 +683,11 @@ public sealed class ScreenCaptureVideoSource : IVideoSource
     private bool _running;
     private DateTime _lastFrameTime = DateTime.MinValue;
     private DateTime _lastErrorTime = DateTime.MinValue;
-    private const int FrameIntervalMs = 66; // 约 15fps
+    // 帧率按设置走（默认 30fps → 约 33ms；节流间隔 = 1000 / 帧率）。
+    private static int FrameIntervalMs => 1000 / Math.Clamp(AppSettings.Current.FrameRate, 1, 60);
+    // 编码目标分辨率（开始分享时按设置解析一次；解析失败用采集原尺寸）。
+    private int _targetWidth;
+    private int _targetHeight;
     private VideoFormat _format = new(VideoCodecsEnum.H264, 100, 90000, "packetization-mode=1;profile-level-id=42e01f;level-asymmetry-allowed=1");
 
     public ScreenCaptureVideoSource(IVideoEncoder encoder, GraphicsCaptureItem item)
@@ -700,12 +713,24 @@ public sealed class ScreenCaptureVideoSource : IVideoSource
         // 共享设备：不要 Dispose（别处也在用）。
         _device = CanvasDevice.GetSharedDevice();
         var size = _item.Size;
+        (_targetWidth, _targetHeight) = TargetResolution(size.Width, size.Height);
         _framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(_device, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, size);
         _framePool.FrameArrived += OnFrameArrived;
         _session = _framePool.CreateCaptureSession(_item);
         _session.StartCapture();
         _running = true;
         return Task.CompletedTask;
+    }
+
+    /// <summary>设置里的分辨率（如 "1920 × 1080"）转编码尺寸；解析失败用采集原尺寸。</summary>
+    private static (int Width, int Height) TargetResolution(int captureWidth, int captureHeight)
+    {
+        var parts = AppSettings.Current.Resolution.Split(new[] { '×', 'x', 'X' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 2
+            && int.TryParse(parts[0].Trim(), out var w) && int.TryParse(parts[1].Trim(), out var h)
+            && w > 0 && h > 0 && w <= 7680 && h <= 4320)
+            return (w, h);
+        return (captureWidth, captureHeight);
     }
 
     public Task CloseVideo()
@@ -736,28 +761,47 @@ public sealed class ScreenCaptureVideoSource : IVideoSource
         try
         {
             frame = sender.TryGetNextFrame();
-            if (frame == null || _device == null) return;
+            var device = _device;
+            if (frame == null || device == null) return;
             var size = frame.ContentSize;
             if (size.Width <= 0 || size.Height <= 0) return;
-            using var bitmap = CanvasBitmap.CreateFromDirect3D11Surface(_device, frame.Surface);
-            var bgra = bitmap.GetPixelBytes(); // BGRA8，紧排
-            if (bgra.Length != size.Width * size.Height * 4)
+            using var bitmap = CanvasBitmap.CreateFromDirect3D11Surface(device, frame.Surface);
+            // 编码尺寸按设置走：与采集尺寸不同时用 Win2D 在 GPU 上缩放到目标尺寸。
+            var width = size.Width;
+            var height = size.Height;
+            byte[] bgra;
+            if (_targetWidth != size.Width || _targetHeight != size.Height)
+            {
+                using var target = new CanvasRenderTarget(device, _targetWidth, _targetHeight, 96);
+                using (var ds = target.CreateDrawingSession())
+                {
+                    ds.DrawImage(bitmap, new Windows.Foundation.Rect(0, 0, _targetWidth, _targetHeight));
+                }
+                bgra = target.GetPixelBytes(); // BGRA8，紧排
+                width = _targetWidth;
+                height = _targetHeight;
+            }
+            else
+            {
+                bgra = bitmap.GetPixelBytes(); // BGRA8，紧排
+            }
+            if (bgra.Length != width * height * 4)
             {
                 ReportErrorOnce("屏幕帧字节数与尺寸不符，已跳过。");
                 return;
             }
-            var bgr = new byte[size.Width * size.Height * 3];
+            var bgr = new byte[width * height * 3];
             for (int i = 0, j = 0; i < bgra.Length; i += 4, j += 3)
             {
                 bgr[j] = bgra[i];
                 bgr[j + 1] = bgra[i + 1];
                 bgr[j + 2] = bgra[i + 2];
             }
-            OnVideoSourceRawSample?.Invoke(FrameIntervalMs, size.Width, size.Height, bgr, VideoPixelFormatsEnum.Bgr);
-            var encoded = _encoder.EncodeVideo(size.Width, size.Height, bgr, VideoPixelFormatsEnum.Bgr, VideoCodecsEnum.H264);
+            OnVideoSourceRawSample?.Invoke((uint)FrameIntervalMs, width, height, bgr, VideoPixelFormatsEnum.Bgr);
+            var encoded = _encoder.EncodeVideo(width, height, bgr, VideoPixelFormatsEnum.Bgr, VideoCodecsEnum.H264);
             if (encoded != null && encoded.Length > 0)
-                // 90000Hz 时钟：66ms ≈ 6000。
-                OnVideoSourceEncodedSample?.Invoke(6000, encoded);
+                // 90000Hz 时钟：帧间隔毫秒 × 90（如 33ms ≈ 3000）。
+                OnVideoSourceEncodedSample?.Invoke((uint)(FrameIntervalMs * 90), encoded);
         }
         catch (Exception ex)
         {

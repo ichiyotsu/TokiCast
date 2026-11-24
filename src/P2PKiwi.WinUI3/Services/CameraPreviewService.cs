@@ -26,6 +26,8 @@ public sealed class CameraPreviewService
         _dispatcher = dispatcher;
         try
         {
+            // 幂等清理旧实例：连调两次时旧的 _capture/_reader 不能直接被覆盖掉。
+            await StopAsync();
             var init = new MediaCaptureInitializationSettings
             {
                 StreamingCaptureMode = StreamingCaptureMode.Video,
@@ -40,7 +42,12 @@ public sealed class CameraPreviewService
             await _capture.InitializeAsync(init);
             var frameSource = _capture.FrameSources.Values
                 .FirstOrDefault(s => s.Info.SourceKind == MediaFrameSourceKind.Color);
-            if (frameSource is null) return false;
+            if (frameSource is null)
+            {
+                // 没找到 Color 帧源：刚建好的 MediaCapture 先释放再返回，否则摄像头被占住。
+                await StopAsync();
+                return false;
+            }
             _reader = await _capture.CreateFrameReaderAsync(frameSource);
             _reader.FrameArrived += OnFrameArrived;
             await _reader.StartAsync();
@@ -56,22 +63,29 @@ public sealed class CameraPreviewService
 
     private void OnFrameArrived(MediaFrameReader sender, MediaFrameArrivedEventArgs args)
     {
-        using var frame = sender.TryAcquireLatestFrame();
-        var bitmap = frame?.VideoMediaFrame?.SoftwareBitmap;
-        if (bitmap is null) return;
-        // 永远转一份副本：原帧随 frame 释放而失效，副本在画完后由 UI 线程释放。
-        var copy = SoftwareBitmap.Convert(bitmap, BitmapPixelFormat.Bgra8);
-        var source = _source;
-        var dispatcher = _dispatcher;
-        if (source is null || dispatcher is null)
+        try
         {
-            copy.Dispose();
-            return;
+            using var frame = sender.TryAcquireLatestFrame();
+            var bitmap = frame?.VideoMediaFrame?.SoftwareBitmap;
+            if (bitmap is null) return;
+            // 永远转一份副本：原帧随 frame 释放而失效，副本在画完后由 UI 线程释放。
+            var copy = SoftwareBitmap.Convert(bitmap, BitmapPixelFormat.Bgra8);
+            var source = _source;
+            var dispatcher = _dispatcher;
+            if (source is null || dispatcher is null)
+            {
+                copy.Dispose();
+                return;
+            }
+            _ = dispatcher.TryEnqueue(async () =>
+            {
+                try { await source.SetBitmapAsync(copy); } catch { } finally { copy.Dispose(); }
+            });
         }
-        _ = dispatcher.TryEnqueue(async () =>
+        catch
         {
-            try { await source.SetBitmapAsync(copy); } catch { } finally { copy.Dispose(); }
-        });
+            // 某一帧格式不支持等错误只丢这一帧，不让回调线程的异常崩掉预览。
+        }
     }
 
     public async Task StopAsync()
@@ -80,10 +94,10 @@ public sealed class CameraPreviewService
         {
             _reader.FrameArrived -= OnFrameArrived;
             try { await _reader.StopAsync(); } catch { }
-            _reader.Dispose();
+            try { _reader.Dispose(); } catch { }
             _reader = null;
         }
-        _capture?.Dispose();
+        try { _capture?.Dispose(); } catch { }
         _capture = null;
         _source = null;
     }

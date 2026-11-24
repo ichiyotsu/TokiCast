@@ -16,11 +16,7 @@ public static class WindowsCompat
     public static bool IsWindows11 =>
         ApiInformation.IsApiContractPresent("Windows.Foundation.UniversalApiContract", 14);
 
-    /// <summary>自定义标题栏（ExtendsContentIntoTitleBar）Win10 1809+ 即支持。</summary>
-    public static bool SupportsCustomTitleBar => true;
-
-    /// <summary>画面采集 Windows.Graphics.Capture 需要 1809+，与最低版本一致。</summary>
-    public static bool SupportsGraphicsCapture => true;
+    // 自定义标题栏与画面采集在最低版本 Win10 1809 上即已支持，不再单独检测，调用处直接按支持处理。
 
     public static void ApplyWindowBackdrop(Window window)
     {
