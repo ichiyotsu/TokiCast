@@ -205,7 +205,7 @@ public sealed partial class SessionPage : Page
             var package = new DataPackage();
             package.SetText(AnswerLinkBox.Text);
             // 与主页复制链接同理：SetContentWithOptions 不会因应用不在前台而抛。
-            Clipboard.SetContentWithOptions(package, new ClipboardOptions { IsAllowedInHistory = true, IsRoamable = false });
+            Clipboard.SetContentWithOptions(package, new ClipboardContentOptions { IsAllowedInHistory = true, IsRoamable = false });
         }
         catch
         {

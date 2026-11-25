@@ -85,7 +85,7 @@ public sealed partial class HomePage : Page
             package.SetText(text);
             // SetContent 要求应用在前台，刚经过系统选择器 + 1~5 秒 ICE 等待时前台很可能已丢，
             // 会抛 InvalidOperationException；SetContentWithOptions 不会因此抛。
-            Clipboard.SetContentWithOptions(package, new ClipboardOptions { IsAllowedInHistory = true, IsRoamable = false });
+            Clipboard.SetContentWithOptions(package, new ClipboardContentOptions { IsAllowedInHistory = true, IsRoamable = false });
         }
         catch
         {
