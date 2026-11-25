@@ -1,5 +1,5 @@
+using System.IO;
 using System.Text.Json;
-using Windows.Storage;
 
 namespace P2PKiwi.WinUI3.Services;
 
@@ -28,65 +28,71 @@ public sealed class TokiCastSettings
     public string StunTurnJson { get; set; } = "{\"urls\":\"stun:stun.l.google.com:19302\"}";
 }
 
-/// <summary>设置读写：ApplicationData.LocalSettings，键值对持久化。</summary>
+/// <summary>
+/// 设置读写：%LOCALAPPDATA%\TokiCast\settings.json。
+/// 不能用 ApplicationData.LocalSettings：本应用是 Inno 安装包的无包标识（unpackaged）进程，
+/// ApplicationData.Current 会以 0x80073D54（APPMODEL_ERROR_NO_PACKAGE）失败，
+/// CsWinRT 把它映射成无参 InvalidOperationException——0.1.4 真机上“开始分享失败 / 设置打不开 /
+/// 发消息报错”三处都是它（见 tokicast-014-audit/DIAGNOSIS-015.md）。
+/// Load()/Save() 全程 try/catch、永不抛，读不到或解析失败就用默认设置。
+/// </summary>
 public static class AppSettings
 {
+    // 本地数据目录：设置 + 最近会话都放这里。
+    internal static string AppDataFolder => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "TokiCast");
+
+    private const string SettingsFileName = "settings.json";
+
+    // 人可读的 JSON：中文不转义、缩进，方便用户直接看/改 %LOCALAPPDATA%\TokiCast 下的文件。
+    internal static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
     private static TokiCastSettings? _current;
     public static TokiCastSettings Current => _current ??= Load();
 
     public static TokiCastSettings Load()
     {
-        var values = ApplicationData.Current.LocalSettings.Values;
-        var s = new TokiCastSettings();
-        string Get(string key, string fallback) => values.TryGetValue(key, out var v) && v is string str ? str : fallback;
-        bool GetBool(string key, bool fallback) => values.TryGetValue(key, out var v) && v is bool b ? b : fallback;
-        int GetInt(string key, int fallback) => values.TryGetValue(key, out var v) && v is int i ? i : fallback;
-        s.UserName = Get("UserName", s.UserName);
-        s.ForegroundColor = Get("ForegroundColor", s.ForegroundColor);
-        s.BackgroundColor = Get("BackgroundColor", s.BackgroundColor);
-        s.Language = Get("Language", s.Language);
-        s.CameraDevice = Get("CameraDevice", s.CameraDevice);
-        s.MicrophoneDevice = Get("MicrophoneDevice", s.MicrophoneDevice);
-        s.MicOnConnect = GetBool("MicOnConnect", s.MicOnConnect);
-        s.RecordRemoteScreen = GetBool("RecordRemoteScreen", s.RecordRemoteScreen);
-        s.Resolution = Get("Resolution", s.Resolution);
-        s.FrameRate = GetInt("FrameRate", s.FrameRate);
-        s.BitrateMbps = GetInt("BitrateMbps", s.BitrateMbps);
-        s.BonjourEnabled = GetBool("BonjourEnabled", s.BonjourEnabled);
-        s.BonjourUrl = Get("BonjourUrl", s.BonjourUrl);
-        s.DebugLog = GetBool("DebugLog", s.DebugLog);
-        s.E2eeEnabled = GetBool("E2eeEnabled", s.E2eeEnabled);
-        s.SFrameEnabled = GetBool("SFrameEnabled", s.SFrameEnabled);
-        s.StunTurnJson = Get("StunTurnJson", s.StunTurnJson);
-        _current = s;
-        return s;
+        try
+        {
+            var path = Path.Combine(AppDataFolder, SettingsFileName);
+            if (File.Exists(path))
+            {
+                var json = File.ReadAllText(path);
+                if (JsonSerializer.Deserialize<TokiCastSettings>(json) is { } s)
+                {
+                    _current = s;
+                    return s;
+                }
+            }
+        }
+        catch
+        {
+            // 设置读不到或损坏：用默认值，不打断启动/分享/发消息。
+        }
+        _current = new TokiCastSettings();
+        return _current;
     }
 
     public static void Save()
     {
-        var s = Current;
-        var values = ApplicationData.Current.LocalSettings.Values;
-        values["UserName"] = s.UserName;
-        values["ForegroundColor"] = s.ForegroundColor;
-        values["BackgroundColor"] = s.BackgroundColor;
-        values["Language"] = s.Language;
-        values["CameraDevice"] = s.CameraDevice;
-        values["MicrophoneDevice"] = s.MicrophoneDevice;
-        values["MicOnConnect"] = s.MicOnConnect;
-        values["RecordRemoteScreen"] = s.RecordRemoteScreen;
-        values["Resolution"] = s.Resolution;
-        values["FrameRate"] = s.FrameRate;
-        values["BitrateMbps"] = s.BitrateMbps;
-        values["BonjourEnabled"] = s.BonjourEnabled;
-        values["BonjourUrl"] = s.BonjourUrl;
-        values["DebugLog"] = s.DebugLog;
-        values["E2eeEnabled"] = s.E2eeEnabled;
-        values["SFrameEnabled"] = s.SFrameEnabled;
-        values["StunTurnJson"] = s.StunTurnJson;
+        try
+        {
+            Directory.CreateDirectory(AppDataFolder);
+            var path = Path.Combine(AppDataFolder, SettingsFileName);
+            File.WriteAllText(path, JsonSerializer.Serialize(Current, JsonOptions));
+        }
+        catch
+        {
+            // 保存失败不打断设置页操作（如下次启动仍是旧值）。
+        }
     }
 }
 
-/// <summary>最近会话持久化：JSON 文件存本地文件夹，最多 10 条；点一条就能一键重新加入。</summary>
+/// <summary>最近会话持久化：JSON 文件存本地数据目录，最多 10 条；点一条就能一键重新加入。</summary>
 public static class RecentSessionStore
 {
     private const string FileName = "recent-sessions.json";
@@ -96,9 +102,9 @@ public static class RecentSessionStore
     {
         try
         {
-            var file = await ApplicationData.Current.LocalFolder.TryGetItemAsync(FileName) as StorageFile;
-            if (file is null) return Array.Empty<RecentSessionItem>();
-            var json = await FileIO.ReadTextAsync(file);
+            var path = Path.Combine(AppSettings.AppDataFolder, FileName);
+            if (!File.Exists(path)) return Array.Empty<RecentSessionItem>();
+            var json = await File.ReadAllTextAsync(path);
             return JsonSerializer.Deserialize<List<RecentSessionItem>>(json) ?? new List<RecentSessionItem>();
         }
         catch
@@ -115,8 +121,9 @@ public static class RecentSessionStore
             list.RemoveAll(x => x.RoomId == item.RoomId);
             list.Insert(0, item);
             if (list.Count > MaxItems) list.RemoveRange(MaxItems, list.Count - MaxItems);
-            var file = await ApplicationData.Current.LocalFolder.CreateFileAsync(FileName, CreationCollisionOption.ReplaceExisting);
-            await FileIO.WriteTextAsync(file, JsonSerializer.Serialize(list));
+            Directory.CreateDirectory(AppSettings.AppDataFolder);
+            var path = Path.Combine(AppSettings.AppDataFolder, FileName);
+            await File.WriteAllTextAsync(path, JsonSerializer.Serialize(list, AppSettings.JsonOptions));
         }
         catch
         {
