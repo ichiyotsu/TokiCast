@@ -200,9 +200,17 @@ public sealed partial class SessionPage : Page
     private void CopyAnswer_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(AnswerLinkBox.Text)) return;
-        var package = new DataPackage();
-        package.SetText(AnswerLinkBox.Text);
-        Clipboard.SetContent(package);
+        try
+        {
+            var package = new DataPackage();
+            package.SetText(AnswerLinkBox.Text);
+            // 与主页复制链接同理：SetContentWithOptions 不会因应用不在前台而抛。
+            Clipboard.SetContentWithOptions(package, new ClipboardOptions { IsAllowedInHistory = true, IsRoamable = false });
+        }
+        catch
+        {
+            // 复制失败不打断流程，链接仍显示在输入框里。
+        }
     }
 
     private async void MicButton_Click(object sender, RoutedEventArgs e)

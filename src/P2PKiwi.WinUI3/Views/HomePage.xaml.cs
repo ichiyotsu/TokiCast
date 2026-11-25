@@ -79,9 +79,18 @@ public sealed partial class HomePage : Page
 
     private static void CopyToClipboard(string text)
     {
-        var package = new DataPackage();
-        package.SetText(text);
-        Clipboard.SetContent(package);
+        try
+        {
+            var package = new DataPackage();
+            package.SetText(text);
+            // SetContent 要求应用在前台，刚经过系统选择器 + 1~5 秒 ICE 等待时前台很可能已丢，
+            // 会抛 InvalidOperationException；SetContentWithOptions 不会因此抛。
+            Clipboard.SetContentWithOptions(package, new ClipboardOptions { IsAllowedInHistory = true, IsRoamable = false });
+        }
+        catch
+        {
+            // 复制失败不打断分享流程，链接可用「复制链接」按钮重试。
+        }
     }
 
     /// <summary>点一条最近会话，一键重新加入（用存下的邀请链接）。</summary>
